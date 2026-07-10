@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bosch Flow · Bike Cockpit</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e242c; --line:#2a323c;
+    --ink:#e8edf2; --dim:#8a97a6; --accent:#4fd1a5; --accent2:#5b9dff;
+    --warn:#f2c14e; --bad:#f0685e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:20px 24px;border-bottom:1px solid var(--line);
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--dim);font-size:13px}
+  .live{margin-left:auto;font-size:12px;color:var(--dim)}
+  #refresh{margin-left:14px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+  #refresh:hover{border-color:var(--accent)}
+  #refresh:disabled{opacity:.6;cursor:default}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:var(--accent);margin-right:6px;vertical-align:middle}
+  .dot.off{background:var(--dim)}
+  main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px;
+    max-width:1300px;margin:0 auto}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);font-weight:600}
+  /* battery hero */
+  .batt{display:flex;align-items:center;gap:16px}
+  .ring{--p:0;width:96px;height:96px;border-radius:50%;flex:none;
+    background:conic-gradient(var(--accent) calc(var(--p)*1%), var(--panel2) 0);
+    display:grid;place-items:center}
+  .ring>div{width:76px;height:76px;border-radius:50%;background:var(--panel);
+    display:grid;place-items:center;font-size:22px;font-weight:700}
+  .batt .meta{font-size:13px;color:var(--dim)}
+  .batt .meta b{color:var(--ink);font-weight:600}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;
+    background:var(--panel2);color:var(--dim);border:1px solid var(--line)}
+  .pill.on{color:var(--accent);border-color:var(--accent)}
+  .rangegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+  .range{background:var(--panel2);border-radius:8px;padding:8px 10px}
+  .range .n{font-size:18px;font-weight:700}
+  .range .m{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  /* stats bars */
+  .bar{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:8px;margin:7px 0;font-size:13px}
+  .bar .track{height:8px;background:var(--panel2);border-radius:5px;overflow:hidden}
+  .bar .fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+  .bar .v{color:var(--dim);font-variant-numeric:tabular-nums}
+  .kv{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .kv:last-child{border:0}
+  .kv span{color:var(--dim)}
+  .comp{font-size:12px;display:flex;justify-content:space-between;padding:3px 0;color:var(--dim)}
+  .comp b{color:var(--ink);font-weight:500}
+  /* map + rides */
+  #map{height:380px;border-radius:12px;border:1px solid var(--line);background:var(--panel2)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:var(--panel2)}
+  tbody tr.sel{background:#22303a}
+  td.gps{color:var(--accent)}
+  .tblwrap{overflow-x:auto}
+  a.gpx{color:var(--accent2);text-decoration:none}
+  .muted{color:var(--dim);font-size:12px}
+  .err{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="bikeName">Loading…</h1>
+  <span class="sub" id="bikeModel"></span>
+  <span class="live" id="live"></span>
+  <button id="refresh" title="Force a fresh fetch from Bosch (bypass cache)">⟳ Refresh</button>
+</header>
+<main>
+  <div class="col">
+    <div class="card">
+      <h2>Battery</h2>
+      <div class="batt">
+        <div class="ring" id="ring"><div id="soc">–</div></div>
+        <div class="meta" id="battMeta"></div>
+      </div>
+      <div class="rangegrid" id="ranges"></div>
+    </div>
+    <div class="card">
+      <h2>Mode efficiency (lifetime)</h2>
+      <div id="stats"></div>
+    </div>
+    <div class="card">
+      <h2>Bike health</h2>
+      <div id="health"></div>
+    </div>
+    <div class="card">
+      <h2>Components &amp; firmware</h2>
+      <div id="components"></div>
+    </div>
+  </div>
+  <div class="col">
+    <div id="map"></div>
+    <div class="card">
+      <h2>Rides <span class="muted" id="syncNote"></span><span class="muted" id="rideHint">— click a ride to map its track</span></h2>
+      <div class="tblwrap">
+        <table>
+          <thead><tr><th>Date</th><th>Dist</th><th>Avg</th><th>Max</th><th>Power</th><th>kcal</th><th>GPS</th><th></th></tr></thead>
+          <tbody id="rides"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const api = p => fetch('/api'+p).then(r => r.ok ? r.json() : r.json().then(e=>Promise.reject(e)));
+let BID, map, trackLayer, hereMarker, FRESH = false;
+// append fresh=1 when a manual refresh is in progress (bypasses the server cache)
+const fp = p => FRESH ? p + (p.includes('?') ? '&' : '?') + 'fresh=1' : p;
+
+function fmtDate(iso){ if(!iso) return '–'; const d=new Date(iso);
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});}
+function ago(iso){ if(!iso) return ''; const s=(Date.now()-new Date(iso))/1000;
+  if(s<3600) return Math.round(s/60)+'m ago'; if(s<86400) return Math.round(s/3600)+'h ago'; return Math.round(s/86400)+'d ago';}
+
+async function boot(){
+  try{
+    const bikes = await api('/bikes');
+    if(!bikes.length){ $('#bikeName').textContent='No bikes on this account'; return; }
+    const b = bikes[0]; BID = b.id;
+    $('#bikeName').textContent = `${b.brand} ${b.drive_unit}`;
+    $('#bikeModel').textContent = b.model;
+    initMap();
+    loadBattery(); loadStats(); loadProfile(); loadRides(); loadLocation();
+  }catch(e){ $('#bikeName').innerHTML = '<span class="err">'+(e.error||'failed to load — is a bike logged in?')+'</span>'; }
+}
+
+async function loadBattery(){
+  const d = await api(fp(`/bikes/${BID}/battery`));
+  $('#soc').textContent = (d.level_percent??'–')+'%';
+  $('#ring').style.setProperty('--p', d.level_percent??0);
+  $('#live').innerHTML = `<span class="dot ${d.live?'':'off'}"></span>${d.live?'live':'last-known'} · updated ${ago(d.last_update)||'?'}`;
+  const charge = d.is_charging ? '<span class="pill on">charging</span>'
+    : d.charger_connected ? '<span class="pill on">plugged in</span>'
+    : '<span class="pill">unplugged</span>';
+  $('#battMeta').innerHTML = `${charge}<br>
+    <b>${d.total_capacity_wh}</b> Wh pack · <b>${d.charge_cycles}</b> cycles<br>
+    <b>${d.odometer_km}</b> km odometer<br>
+    <b>${d.delivered_lifetime_wh}</b> Wh lifetime`;
+  $('#ranges').innerHTML = (d.range_per_mode||[]).map(r=>
+    `<div class="range"><div class="n">${r.range_km}<span class="m"> km</span></div><div class="m">${r.mode}</div></div>`).join('');
+}
+
+async function loadStats(){
+  const d = await api(fp(`/bikes/${BID}/stats`));
+  const max = Math.max(...d.map(x=>x.distance_km),1);
+  $('#stats').innerHTML = d.filter(x=>x.distance_km>0.5).map(x=>`
+    <div class="bar"><span>${x.mode}</span>
+      <div class="track"><div class="fill" style="width:${100*x.distance_km/max}%"></div></div>
+      <span class="v">${x.distance_km} km · ${x.wh_per_km??'–'} Wh/km</span></div>`).join('');
+}
+
+async function loadProfile(){
+  const d = await api(fp(`/bikes/${BID}/profile`));
+  $('#health').innerHTML = `
+    <div class="kv"><span>Model</span><b>${d.model||'–'}</b></div>
+    <div class="kv"><span>ABS</span><b>${d.has_abs?'Yes':'No'}</b></div>
+    <div class="kv"><span>Alarm armed</span><b>${d.alarm_enabled?'Yes':'No'}</b></div>
+    <div class="kv"><span>Max assist</span><b>${d.max_assist_speed_kmh} km/h</b></div>
+    <div class="kv"><span>Power-on hours</span><b>${d.power_on_hours_total} (${d.power_on_hours_motor} w/ motor)</b></div>
+    <div class="kv"><span>Tuning detected</span><b>${d.tuning_detected?'Yes':'No'}</b></div>`;
+  $('#components').innerHTML = d.components.map(c=>
+    `<div class="comp"><b>${c.product}</b><span>fw ${c.firmware||'–'}</span></div>`).join('');
+}
+
+async function loadRides(){
+  const rides = await api(fp(`/bikes/${BID}/rides?gps=1`));
+  $('#syncNote').textContent = rides.length ? `— synced through ${fmtDate(rides[0].start)} ` : '';
+  $('#rides').innerHTML = rides.map(r=>`
+    <tr data-id="${r.id}">
+      <td>${fmtDate(r.start)}</td><td>${r.distance_km} km</td>
+      <td>${r.avg_speed_kmh??'–'}</td><td>${r.max_speed_kmh??'–'}</td>
+      <td>${r.avg_power_w??'–'} W</td><td>${r.calories??'–'}</td>
+      <td class="gpschk">${r.has_gps?`<span style="color:var(--accent)" title="${r.gps_points} points">● ${r.gps_points}</span>`:'<span class="muted">–</span>'}</td>
+      <td><a class="gpx" href="/api/bikes/${BID}/rides/${r.id}.gpx">GPX</a></td>
+    </tr>`).join('');
+  $('#rides').querySelectorAll('tr').forEach(tr=>
+    tr.onclick = e => { if(e.target.tagName!=='A') showRide(tr.dataset.id, tr); });
+}
+
+async function showRide(aid, tr){
+  $('#rides').querySelectorAll('tr').forEach(t=>t.classList.remove('sel'));
+  tr.classList.add('sel');
+  $('#rideHint').textContent = '— loading track…';
+  const d = await api(`/bikes/${BID}/rides/${aid}`);
+  if(trackLayer){ map.removeLayer(trackLayer); trackLayer=null; }
+  if(!d.has_gps){ $('#rideHint').textContent = '— this ride has no GPS (recorded without phone)'; return; }
+  const latlngs = d.track.map(p=>[p.lat,p.lon]);
+  trackLayer = L.polyline(latlngs,{color:'#4fd1a5',weight:4,opacity:.9}).addTo(map);
+  L.circleMarker(latlngs[0],{radius:5,color:'#5b9dff',fillOpacity:1}).addTo(trackLayer);
+  map.fitBounds(trackLayer.getBounds(),{padding:[30,30]});
+  $('#rideHint').textContent = `— ${d.distance_km} km · ${d.track.length} GPS points`;
+}
+
+async function loadLocation(){
+  try{
+    const d = await api(fp(`/bikes/${BID}/location`));
+    if(!d.lat) return;
+    hereMarker = L.marker([d.lat,d.lon]).addTo(map).bindPopup('Last-known position<br>'+fmtDate(d.time));
+    map.setView([d.lat,d.lon], 13);
+  }catch(e){}
+}
+
+function initMap(){
+  map = L.map('map',{zoomControl:true}).setView([40.61,-73.98],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+}
+
+async function refreshAll(){
+  const btn = $('#refresh');
+  btn.disabled = true; const label = btn.textContent; btn.textContent = '⟳ Refreshing…';
+  FRESH = true;
+  try{
+    await Promise.all([loadBattery(), loadStats(), loadProfile(), loadRides(), loadLocation()]);
+  }catch(e){ /* individual loaders surface their own errors */ }
+  finally{ FRESH = false; btn.disabled = false; btn.textContent = label; }
+}
+$('#refresh').onclick = refreshAll;
+boot();
+</script>
+</body>
+</html>

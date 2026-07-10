@@ -1,0 +1,18 @@
+# Secrets & runtime state — never commit these
+bosch_tokens.json
+bosch_users.json
+bosch_webhooks.json
+bosch_poller_state.json
+bosch_events.jsonl
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# macOS menu bar app build artifacts
+menubar/build/
+menubar/Bosch Flow.app/
+
+# macOS
+.DS_Store
