@@ -160,6 +160,7 @@ class BoschClient:
             "charge_cycles": (bat.get("numberOfFullChargeCycles") or {}).get("total"),
             "delivered_lifetime_wh": bat.get("deliveredWhOverLifetime"),
             "remaining_energy_for_rider": (soc or {}).get("remainingEnergyForRider"),
+            "remaining_charging_time": (soc or {}).get("remainingChargingTime"),
             "range_per_mode": range_per_mode,
             "odometer_km": round((soc or {}).get("odometer", du.get("totalDistanceTraveled") or 0) / 1000, 1),
             "last_update": (soc or {}).get("stateOfChargeLatestUpdate"),
@@ -242,6 +243,10 @@ class BoschClient:
             "calories": a.get("caloriesBurnt"),
             "co2_saved_g": a.get("co2EmissionsCarEquivalentGrams"),
             "abs_interventions": (a.get("brakeEvents") or {}).get("amountOfAbsInterventionEvents"),
+            "rider_energy_share": a.get("riderEnergyShare"),
+            "elevation_gain_m": a.get("elevationGain"),
+            "elevation_loss_m": a.get("elevationLoss"),
+            "avg_cadence": a.get("averageCadence"),
         }
 
     async def rides(self, bike_id: str, with_gps: bool = False) -> list[dict]:
@@ -270,6 +275,7 @@ class BoschClient:
                 "speed_kmh": p.get("v"),
                 "cadence": p.get("c"),
                 "power_w": p.get("p"),
+                "elevation_m": p.get("h"),
             })
         return out
 

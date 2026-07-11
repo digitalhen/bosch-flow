@@ -157,6 +157,13 @@ A native menu bar app that shows live battery % and posts **native desktop
 notifications** on events (this is the reliable way to get banners — a proper app
 gets its own notification permission).
 
+**Prebuilt:** a signed build is committed at **`menubar/dist/Bosch-Flow-1.0.zip`** —
+just unzip and drag to `/Applications` (no Xcode needed). It's ad-hoc signed, so if
+macOS says it's from an unidentified developer, right-click → **Open** once (or run
+`xattr -cr "Bosch Flow.app"`).
+
+**Or build it yourself:**
+
 ```bash
 cd menubar
 ./build.sh                 # compiles + signs "Bosch Flow.app" (needs swiftc)

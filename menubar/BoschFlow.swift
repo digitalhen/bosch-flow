@@ -24,6 +24,7 @@ struct Battery: Decodable {
     let range_per_mode: [RangeMode]?
     let last_update: String?
     let live: Bool?
+    let remaining_charging_time: Double?   // minutes to full (while charging)
 }
 struct Ride: Decodable {
     let id: String; let start: String?; let distance_km: Double?
@@ -38,6 +39,7 @@ final class BikeStore: ObservableObject {
     @Published var rides: [Ride] = []
     @Published var serverUp = false
     @Published var lastError: String?
+    @Published var chargeEta: Date?   // when charging, anchored full-charge time
 
     private var bikeID: String?
     private var lastEventSeen: Double = Date().timeIntervalSince1970
@@ -77,6 +79,12 @@ final class BikeStore: ObservableObject {
         if let d = await get("/api/bikes/\(id)/battery"),
            let bat = try? JSONDecoder().decode(Battery.self, from: d) {
             battery = bat; serverUp = true; lastError = nil
+            // anchor a live countdown to Bosch's latest "minutes to full" estimate
+            if (bat.is_charging ?? false), let mins = bat.remaining_charging_time, mins > 0 {
+                chargeEta = Date().addingTimeInterval(mins * 60)
+            } else {
+                chargeEta = nil
+            }
         }
         if let d = await get("/api/bikes/\(id)/rides?gps=1"),
            let r = try? JSONDecoder().decode([Ride].self, from: d) {
@@ -106,12 +114,20 @@ final class BikeStore: ObservableObject {
         if let newest = events.map({ $0.1 }).max() { lastEventSeen = max(lastEventSeen, newest) }
     }
 
-    // menu bar title
+    // menu bar title — shows a live countdown while charging
     var menuTitle: String {
         guard serverUp, let b = battery, let lvl = b.level_percent else { return "—" }
+        if (b.is_charging ?? false), let eta = chargeEta {
+            return "⚡︎\(lvl)% · \(fmtCountdown(eta.timeIntervalSinceNow))"
+        }
         let bolt = (b.is_charging ?? false) ? "⚡︎" : ""
         return "\(bolt)\(lvl)%"
     }
+}
+
+func fmtCountdown(_ secs: TimeInterval) -> String {
+    let m = max(0, Int(secs / 60))
+    return m >= 60 ? "\(m/60)h\(m%60)m" : "\(m)m"
 }
 
 // MARK: - Notifications
@@ -154,6 +170,13 @@ enum Notifier {
 // MARK: - Popover UI
 struct DetailView: View {
     @ObservedObject var store: BikeStore
+    @AppStorage("useImperial") private var useImperial = false
+
+    private func dist(_ km: Double) -> String {
+        useImperial ? String(format: "%.1f mi", km*0.621371) : String(format: "%.1f km", km)
+    }
+    private func rangeVal(_ km: Double) -> Int { Int((useImperial ? km*0.621371 : km).rounded()) }
+    private var distUnit: String { useImperial ? "mi" : "km" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -169,13 +192,17 @@ struct DetailView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(b.level_percent ?? 0)%").font(.title2).bold()
                         Text(statusLine(b)).font(.caption).foregroundStyle(.secondary)
+                        if (b.is_charging ?? false), let eta = store.chargeEta {
+                            Text("~\(fmtCountdown(eta.timeIntervalSinceNow)) to full")
+                                .font(.caption).foregroundStyle(.green)
+                        }
                     }
                 }
                 if let ranges = b.range_per_mode, !ranges.isEmpty {
                     HStack(spacing: 8) {
                         ForEach(ranges.indices, id: \.self) { i in
                             VStack(spacing: 1) {
-                                Text("\(Int(ranges[i].range_km ?? 0))").font(.callout).bold()
+                                Text("\(rangeVal(ranges[i].range_km ?? 0))").font(.callout).bold()
                                 Text(ranges[i].mode ?? "").font(.system(size: 9)).foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
@@ -186,7 +213,7 @@ struct DetailView: View {
                     }
                 }
                 if let odo = b.odometer_km {
-                    Label(String(format: "%.1f km odometer", odo), systemImage: "gauge.with.dots.needle.bottom.50percent")
+                    Label("\(dist(odo)) odometer", systemImage: "gauge.with.dots.needle.bottom.50percent")
                         .font(.caption)
                 }
             }
@@ -197,7 +224,7 @@ struct DetailView: View {
                 HStack {
                     Text(shortDate(latest.start)).font(.caption)
                     Spacer()
-                    Text(String(format: "%.1f km", latest.distance_km ?? 0)).font(.caption).bold()
+                    Text(dist(latest.distance_km ?? 0)).font(.caption).bold()
                     if latest.has_gps ?? false { Image(systemName: "location.fill").font(.system(size: 9)).foregroundStyle(.green) }
                 }
             }
@@ -206,6 +233,7 @@ struct DetailView: View {
             HStack {
                 Button("Dashboard") { NSWorkspace.shared.open(URL(string: apiBase)!) }
                 Button("Refresh") { Task { await store.refresh() } }
+                Button(distUnit) { useImperial.toggle() }
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
             }.font(.caption)
@@ -255,6 +283,10 @@ final class StatusBarController: NSObject {
         Task { await store.refresh() }
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.store.refresh() }
+        }
+        // ticks the charge countdown between polls
+        Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.updateButton() }
         }
     }
 

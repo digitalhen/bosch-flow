@@ -19,9 +19,11 @@
   header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
   header .sub{color:var(--dim);font-size:13px}
   .live{margin-left:auto;font-size:12px;color:var(--dim)}
-  #refresh{margin-left:14px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+  #refresh,#units{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
     border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
-  #refresh:hover{border-color:var(--accent)}
+  #units{margin-left:14px;min-width:42px}
+  #refresh{margin-left:8px}
+  #refresh:hover,#units:hover{border-color:var(--accent)}
   #refresh:disabled{opacity:.6;cursor:default}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
     background:var(--accent);margin-right:6px;vertical-align:middle}
@@ -87,6 +89,7 @@
   <h1 id="bikeName">Loading…</h1>
   <span class="sub" id="bikeModel"></span>
   <span class="live" id="live"></span>
+  <button id="units" title="Toggle km / miles">km</button>
   <button id="refresh" title="Force a fresh fetch from Bosch (bypass cache)">⟳ Refresh</button>
 </header>
 <main>
@@ -133,6 +136,22 @@ let BID, map, trackLayer, hereMarker, FRESH = false;
 // append fresh=1 when a manual refresh is in progress (bypasses the server cache)
 const fp = p => FRESH ? p + (p.includes('?') ? '&' : '?') + 'fresh=1' : p;
 
+// ---- units (metric / imperial) ----
+let UNITS = localStorage.getItem('units') || 'metric';
+const IMP = () => UNITS === 'imperial';
+const U = {
+  distN: km => IMP() ? km*0.621371 : km,   du:  () => IMP() ? 'mi'  : 'km',
+  spN:   k  => IMP() ? k*0.621371  : k,     spu: () => IMP() ? 'mph' : 'km/h',
+  elN:   m  => IMP() ? m*3.28084   : m,     elu: () => IMP() ? 'ft'  : 'm',
+  dist:  (km,dp=1) => `${U.distN(km).toFixed(dp)} ${U.du()}`,
+  speed: (k)       => k==null ? '–' : U.spN(k).toFixed(1),
+  elev:  (m)       => `${Math.round(U.elN(m))}${U.elu()}`,
+  wpd:   (w)       => w==null ? '–' : `${(IMP() ? w/0.621371 : w).toFixed(1)} ${IMP()?'Wh/mi':'Wh/km'}`,
+};
+function fmtDur(min){ min = Math.round(min); return min < 60 ? `${min} min` : `${Math.floor(min/60)}h ${min%60}m`; }
+function renderAll(){ loadBattery(); loadStats(); loadProfile(); loadRides();
+  if(currentTrackData && currentTrackData.has_gps) renderTrack(); }
+
 function fmtDate(iso){ if(!iso) return '–'; const d=new Date(iso);
   return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});}
 function ago(iso){ if(!iso) return ''; const s=(Date.now()-new Date(iso))/1000;
@@ -158,12 +177,14 @@ async function loadBattery(){
   const charge = d.is_charging ? '<span class="pill on">charging</span>'
     : d.charger_connected ? '<span class="pill on">plugged in</span>'
     : '<span class="pill">unplugged</span>';
-  $('#battMeta').innerHTML = `${charge}<br>
+  const eta = (d.is_charging && d.remaining_charging_time != null)
+    ? ` <span style="color:var(--accent)">~${fmtDur(d.remaining_charging_time)} to full</span>` : '';
+  $('#battMeta').innerHTML = `${charge}${eta}<br>
     <b>${d.total_capacity_wh}</b> Wh pack · <b>${d.charge_cycles}</b> cycles<br>
-    <b>${d.odometer_km}</b> km odometer<br>
+    <b>${U.distN(d.odometer_km).toFixed(1)}</b> ${U.du()} odometer<br>
     <b>${d.delivered_lifetime_wh}</b> Wh lifetime`;
   $('#ranges').innerHTML = (d.range_per_mode||[]).map(r=>
-    `<div class="range"><div class="n">${r.range_km}<span class="m"> km</span></div><div class="m">${r.mode}</div></div>`).join('');
+    `<div class="range"><div class="n">${Math.round(U.distN(r.range_km))}<span class="m"> ${U.du()}</span></div><div class="m">${r.mode}</div></div>`).join('');
 }
 
 async function loadStats(){
@@ -172,7 +193,7 @@ async function loadStats(){
   $('#stats').innerHTML = d.filter(x=>x.distance_km>0.5).map(x=>`
     <div class="bar"><span>${x.mode}</span>
       <div class="track"><div class="fill" style="width:${100*x.distance_km/max}%"></div></div>
-      <span class="v">${x.distance_km} km · ${x.wh_per_km??'–'} Wh/km</span></div>`).join('');
+      <span class="v">${U.dist(x.distance_km)} · ${U.wpd(x.wh_per_km)}</span></div>`).join('');
 }
 
 async function loadProfile(){
@@ -181,7 +202,7 @@ async function loadProfile(){
     <div class="kv"><span>Model</span><b>${d.model||'–'}</b></div>
     <div class="kv"><span>ABS</span><b>${d.has_abs?'Yes':'No'}</b></div>
     <div class="kv"><span>Alarm armed</span><b>${d.alarm_enabled?'Yes':'No'}</b></div>
-    <div class="kv"><span>Max assist</span><b>${d.max_assist_speed_kmh} km/h</b></div>
+    <div class="kv"><span>Max assist</span><b>${U.spN(d.max_assist_speed_kmh).toFixed(1)} ${U.spu()}</b></div>
     <div class="kv"><span>Power-on hours</span><b>${d.power_on_hours_total} (${d.power_on_hours_motor} w/ motor)</b></div>
     <div class="kv"><span>Tuning detected</span><b>${d.tuning_detected?'Yes':'No'}</b></div>`;
   $('#components').innerHTML = d.components.map(c=>
@@ -193,8 +214,8 @@ async function loadRides(){
   $('#syncNote').textContent = rides.length ? `— synced through ${fmtDate(rides[0].start)} ` : '';
   $('#rides').innerHTML = rides.map(r=>`
     <tr data-id="${r.id}">
-      <td>${fmtDate(r.start)}</td><td>${r.distance_km} km</td>
-      <td>${r.avg_speed_kmh??'–'}</td><td>${r.max_speed_kmh??'–'}</td>
+      <td>${fmtDate(r.start)}</td><td>${U.dist(r.distance_km)}</td>
+      <td>${U.speed(r.avg_speed_kmh)}</td><td>${U.speed(r.max_speed_kmh)}</td>
       <td>${r.avg_power_w??'–'} W</td><td>${r.calories??'–'}</td>
       <td class="gpschk">${r.has_gps?`<span style="color:var(--accent)" title="${r.gps_points} points">● ${r.gps_points}</span>`:'<span class="muted">–</span>'}</td>
       <td><a class="gpx" href="/api/bikes/${BID}/rides/${r.id}.gpx">GPX</a></td>
@@ -236,9 +257,10 @@ async function loadLocation(){
 // ---- metric-colored track ----
 let trackMetric = 'speed_kmh', currentTrackData = null, toggleEl = null, legendEl = null;
 const METRICS = [
-  {key:'speed_kmh', label:'Speed', unit:'km/h'},
-  {key:'power_w',   label:'Power', unit:'W'},
-  {key:'cadence',   label:'Cadence', unit:'rpm'},
+  {key:'speed_kmh',   label:'Speed', unit:'km/h'},
+  {key:'power_w',     label:'Power', unit:'W'},
+  {key:'cadence',     label:'Cadence', unit:'rpm'},
+  {key:'elevation_m', label:'Elevation', unit:'m'},
 ];
 const RAMP = ['#2c7bb6','#00a6ca','#7fbf7b','#ffff66','#f4a742','#d7191c']; // slow/low → fast/high
 const hexRgb = h => [1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
@@ -282,13 +304,20 @@ function renderTrack(){
   g.addTo(map); trackLayer = g;
   map.fitBounds(L.latLngBounds(track.map(p=>[p.lat,p.lon])), {padding:[30,30]});
   const m = METRICS.find(x=>x.key===key);
+  // per-metric unit conversion for the legend (speed & elevation depend on unit system)
+  const conv = key==='speed_kmh' ? U.spN : key==='elevation_m' ? U.elN : (x=>x);
+  const munit = key==='speed_kmh' ? U.spu() : key==='elevation_m' ? U.elu() : m.unit;
   if(toggleEl){ toggleEl.style.display='flex';
     toggleEl.querySelectorAll('button').forEach(bt=>bt.classList.toggle('on', bt.dataset.k===key)); }
   if(legendEl){ legendEl.style.display='block';
-    legendEl.innerHTML = `<div>${m.label} (${m.unit})</div>
+    legendEl.innerHTML = `<div>${m.label} (${munit})</div>
       <div class="bar" style="background:linear-gradient(90deg,${RAMP.join(',')})"></div>
-      <div class="row"><span>${lo.toFixed(0)}</span><span>${hi.toFixed(0)}</span></div>`; }
-  $('#rideHint').textContent = `— ${currentTrackData.distance_km} km · ${track.length} pts · colored by ${m.label.toLowerCase()}`;
+      <div class="row"><span>${conv(lo).toFixed(0)}</span><span>${conv(hi).toFixed(0)}</span></div>`; }
+  const d = currentTrackData, bits = [U.dist(d.distance_km), `${track.length} pts`];
+  if(d.rider_energy_share != null) bits.push(`⚡ ${d.rider_energy_share}% rider`);
+  if(d.elevation_gain_m != null) bits.push(`↑${U.elev(d.elevation_gain_m)} ↓${U.elev(d.elevation_loss_m)}`);
+  bits.push(`colored by ${m.label.toLowerCase()}`);
+  $('#rideHint').textContent = '— ' + bits.join(' · ');
 }
 function initMap(){
   map = L.map('map',{zoomControl:true}).setView([40.61,-73.98],12);
@@ -307,6 +336,11 @@ async function refreshAll(){
   finally{ FRESH = false; btn.disabled = false; btn.textContent = label; }
 }
 $('#refresh').onclick = refreshAll;
+(function initUnits(){ const b = $('#units');
+  const up = new URLSearchParams(location.search).get('units'); if(up==='imperial'||up==='metric') UNITS = up;
+  b.textContent = IMP() ? 'mi' : 'km';
+  b.onclick = () => { UNITS = IMP() ? 'metric' : 'imperial';
+    localStorage.setItem('units', UNITS); b.textContent = IMP() ? 'mi' : 'km'; renderAll(); }; })();
 boot();
 </script>
 </body>
