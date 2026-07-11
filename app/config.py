@@ -23,6 +23,7 @@ LEGACY_TOKEN_FILE = "bosch_tokens.json"  # imported on first run if present
 WEBHOOKS_FILE = "bosch_webhooks.json"  # outbound webhook subscriptions
 POLLER_STATE_FILE = "bosch_poller_state.json"  # last-known snapshot per bike
 EVENTS_LOG_FILE = "bosch_events.jsonl"  # append-only event log
+PREFS_FILE = "bosch_prefs.json"  # shared UI prefs (units) synced across web + app
 
 # Where those files live. Defaults to the repo root (dev), but the packaged
 # menu bar app sets BOSCH_FLOW_DATA_DIR to ~/Library/Application Support/Bosch

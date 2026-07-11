@@ -127,6 +127,9 @@ final class BikeStore: ObservableObject {
     @Published var loginUser: String?
     @Published var loginStatus: String?   // transient hint shown while logging in
 
+    // shared units pref (metric/imperial), synced with the dashboard via /api/prefs
+    @Published var useImperial = UserDefaults.standard.bool(forKey: "useImperial")
+
     private var bikeID: String?
     private var pendingState: String?     // OAuth `state` for the in-flight login
     private var loginPollTask: Task<Void, Never>?
@@ -149,18 +152,40 @@ final class BikeStore: ObservableObject {
         } catch { return nil }
     }
 
-    /// POST JSON, returning (statusCode, body) — nil on transport failure.
+    /// Send JSON (POST by default), returning (statusCode, body) — nil on transport failure.
     @discardableResult
-    private func post(_ path: String, _ body: [String: Any]) async -> (Int, Data)? {
+    private func post(_ path: String, _ body: [String: Any], method: String = "POST") async -> (Int, Data)? {
         guard let url = URL(string: apiBase + path) else { return nil }
         var req = URLRequest(url: url)
-        req.httpMethod = "POST"
+        req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         do {
             let (data, resp) = try await session.data(for: req)
             return ((resp as? HTTPURLResponse)?.statusCode ?? 0, data)
         } catch { return nil }
+    }
+
+    // MARK: Units (shared with the dashboard)
+
+    private func applyImperial(_ imp: Bool) {
+        guard imp != useImperial else { return }
+        useImperial = imp
+        UserDefaults.standard.set(imp, forKey: "useImperial")
+    }
+
+    /// Pull the shared units pref from the server (reflects a change made on the web).
+    func loadUnits() async {
+        guard let d = await get("/api/prefs"),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let units = j["units"] as? String else { return }
+        applyImperial(units == "imperial")
+    }
+
+    /// Flip units and write through to the server so the dashboard follows.
+    func setImperial(_ imp: Bool) async {
+        applyImperial(imp)
+        await post("/api/prefs", ["units": imp ? "imperial" : "metric"], method: "PUT")
     }
 
     // MARK: Login / token
@@ -251,6 +276,7 @@ final class BikeStore: ObservableObject {
         serverUp = true
         loggedIn = (sj["logged_in"] as? Bool) ?? false
         loginUser = sj["user"] as? String
+        await loadUnits()   // keep units in sync with the dashboard
         guard loggedIn else {
             lastError = "Not logged in — choose “Log in / Update token”."
             return
@@ -364,9 +390,9 @@ enum Notifier {
 // MARK: - Popover UI
 struct DetailView: View {
     @ObservedObject var store: BikeStore
-    @AppStorage("useImperial") private var useImperial = false
     @State private var launchAtLogin = LoginItem.isEnabled
 
+    private var useImperial: Bool { store.useImperial }
     private func dist(_ km: Double) -> String {
         useImperial ? String(format: "%.1f mi", km*0.621371) : String(format: "%.1f km", km)
     }
@@ -463,7 +489,7 @@ struct DetailView: View {
             HStack {
                 Button("Dashboard") { NSWorkspace.shared.open(URL(string: apiBase)!) }
                 Button("Refresh") { Task { await store.refresh() } }
-                Button(distUnit) { useImperial.toggle() }
+                Button(distUnit) { Task { await store.setImperial(!store.useImperial) } }
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
             }.font(.caption)
@@ -555,6 +581,7 @@ final class StatusBarController: NSObject {
 
     @objc private func togglePopover(_ sender: NSStatusBarButton) {
         if popover.isShown { popover.performClose(nil); return }
+        Task { await store.loadUnits() }   // reflect a km/mi change made on the web
         let host = NSHostingController(rootView: DetailView(store: store))
         host.sizingOptions = .preferredContentSize   // lets the popover anchor to the button
         popover.contentViewController = host

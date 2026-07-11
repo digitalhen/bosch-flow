@@ -11,7 +11,7 @@ from starlette.responses import JSONResponse, Response, FileResponse
 from starlette.routing import Route, Mount
 from starlette.staticfiles import StaticFiles
 
-from . import auth, poller, tracks, webhooks
+from . import auth, config, poller, tracks, webhooks
 from .bosch import BoschClient, BoschError
 from .store import TokenStore
 
@@ -226,6 +226,41 @@ async def poll_now(request):
     return JSONResponse({"detected": fired})
 
 
+# --- shared UI preferences (units) ------------------------------------------
+# One small JSON file both the dashboard and the menu bar app read/write, so a
+# km/mi switch in either place is reflected in the other.
+import json as _json
+
+_VALID_UNITS = {"metric", "imperial"}
+
+
+def _read_prefs() -> dict:
+    p = config.data_path(config.PREFS_FILE)
+    if p.exists():
+        try:
+            data = _json.loads(p.read_text())
+        except (ValueError, OSError):
+            data = {}
+    else:
+        data = {}
+    units = data.get("units")
+    return {"units": units if units in _VALID_UNITS else "metric"}
+
+
+async def prefs_get(request):
+    return JSONResponse(_read_prefs())
+
+
+async def prefs_put(request):
+    body = await request.json()
+    units = body.get("units")
+    if units not in _VALID_UNITS:
+        return JSONResponse({"error": "units must be 'metric' or 'imperial'"}, status_code=400)
+    prefs = {"units": units}
+    config.data_path(config.PREFS_FILE).write_text(_json.dumps(prefs, indent=2))
+    return JSONResponse(prefs)
+
+
 async def index(request):
     return FileResponse(_ROOT / "web" / "index.html")
 
@@ -266,6 +301,8 @@ routes = [
     Route("/api/webhooks/{sub_id}/test", webhooks_test, methods=["POST"]),
     Route("/api/events", events_list),
     Route("/api/poll", poll_now, methods=["POST"]),
+    Route("/api/prefs", prefs_get),
+    Route("/api/prefs", prefs_put, methods=["PUT"]),
 ]
 
 if (_ROOT / "web").exists():
