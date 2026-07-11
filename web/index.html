@@ -60,6 +60,15 @@
   .comp b{color:var(--ink);font-weight:500}
   /* map + rides */
   #map{height:380px;border-radius:12px;border:1px solid var(--line);background:var(--panel2)}
+  .metric-toggle{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:3px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+  .metric-toggle button{background:transparent;border:0;color:var(--dim);
+    font:600 12px/1 -apple-system,sans-serif;padding:6px 10px;border-radius:6px;cursor:pointer}
+  .metric-toggle button.on{background:var(--accent);color:#0b0e12}
+  .legend{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;box-shadow:0 2px 10px rgba(0,0,0,.35);font-size:11px;color:var(--dim)}
+  .legend .bar{height:8px;width:150px;border-radius:4px;margin:5px 0}
+  .legend .row{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
   th{color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
@@ -192,6 +201,11 @@ async function loadRides(){
     </tr>`).join('');
   $('#rides').querySelectorAll('tr').forEach(tr=>
     tr.onclick = e => { if(e.target.tagName!=='A') showRide(tr.dataset.id, tr); });
+  // deep-link: ?ride=<id>&metric=speed_kmh|power_w|cadence auto-opens a ride
+  const params = new URLSearchParams(location.search);
+  const mtr = params.get('metric'); if(mtr) trackMetric = mtr;
+  const rid = params.get('ride');
+  if(rid){ const tr = $(`#rides tr[data-id="${rid}"]`); if(tr) showRide(rid, tr); }
 }
 
 async function showRide(aid, tr){
@@ -199,13 +213,15 @@ async function showRide(aid, tr){
   tr.classList.add('sel');
   $('#rideHint').textContent = '— loading track…';
   const d = await api(`/bikes/${BID}/rides/${aid}`);
-  if(trackLayer){ map.removeLayer(trackLayer); trackLayer=null; }
-  if(!d.has_gps){ $('#rideHint').textContent = '— this ride has no GPS (recorded without phone)'; return; }
-  const latlngs = d.track.map(p=>[p.lat,p.lon]);
-  trackLayer = L.polyline(latlngs,{color:'#4fd1a5',weight:4,opacity:.9}).addTo(map);
-  L.circleMarker(latlngs[0],{radius:5,color:'#5b9dff',fillOpacity:1}).addTo(trackLayer);
-  map.fitBounds(trackLayer.getBounds(),{padding:[30,30]});
-  $('#rideHint').textContent = `— ${d.distance_km} km · ${d.track.length} GPS points`;
+  currentTrackData = d;
+  if(!d.has_gps){
+    if(trackLayer){ map.removeLayer(trackLayer); trackLayer=null; }
+    if(toggleEl)toggleEl.style.display='none';
+    if(legendEl)legendEl.style.display='none';
+    $('#rideHint').textContent = '— this ride has no GPS (recorded without phone)';
+    return;
+  }
+  renderTrack();
 }
 
 async function loadLocation(){
@@ -217,10 +233,68 @@ async function loadLocation(){
   }catch(e){}
 }
 
+// ---- metric-colored track ----
+let trackMetric = 'speed_kmh', currentTrackData = null, toggleEl = null, legendEl = null;
+const METRICS = [
+  {key:'speed_kmh', label:'Speed', unit:'km/h'},
+  {key:'power_w',   label:'Power', unit:'W'},
+  {key:'cadence',   label:'Cadence', unit:'rpm'},
+];
+const RAMP = ['#2c7bb6','#00a6ca','#7fbf7b','#ffff66','#f4a742','#d7191c']; // slow/low → fast/high
+const hexRgb = h => [1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+function rampColor(t){
+  t = Math.max(0, Math.min(1, t));
+  const seg = t*(RAMP.length-1), i = Math.min(RAMP.length-2, Math.floor(seg)), f = seg-i;
+  const a = hexRgb(RAMP[i]), b = hexRgb(RAMP[i+1]);
+  return `rgb(${a.map((x,k)=>Math.round(x+(b[k]-x)*f)).join(',')})`;
+}
+function initControls(){
+  const tc = L.control({position:'topright'});
+  tc.onAdd = () => {
+    const d = L.DomUtil.create('div','metric-toggle'); toggleEl = d;
+    d.innerHTML = METRICS.map(m=>`<button data-k="${m.key}">${m.label}</button>`).join('');
+    L.DomEvent.disableClickPropagation(d);
+    d.addEventListener('click', e => { const k = e.target.dataset.k; if(k){ trackMetric = k; renderTrack(); }});
+    d.style.display = 'none'; return d;
+  };
+  tc.addTo(map);
+  const lc = L.control({position:'bottomleft'});
+  lc.onAdd = () => { const d = L.DomUtil.create('div','legend'); legendEl = d; d.style.display='none'; return d; };
+  lc.addTo(map);
+}
+function renderTrack(){
+  if(trackLayer){ map.removeLayer(trackLayer); trackLayer = null; }
+  const track = currentTrackData?.track || [];
+  if(track.length < 2){ if(toggleEl)toggleEl.style.display='none'; if(legendEl)legendEl.style.display='none'; return; }
+  const key = trackMetric;
+  const vals = track.map(p=>p[key]).filter(v=>v!=null).sort((a,b)=>a-b);
+  const lo = vals.length ? vals[Math.floor(vals.length*0.05)] : 0;           // 5th/95th pct for contrast
+  const hi = vals.length ? vals[Math.min(vals.length-1, Math.ceil(vals.length*0.95))] : 1;
+  const span = (hi-lo) || 1;
+  const g = L.layerGroup();
+  for(let i=1;i<track.length;i++){
+    const a = track[i-1], b = track[i];
+    const v = b[key] != null ? b[key] : a[key];
+    const color = v == null ? '#888' : rampColor((v-lo)/span);
+    L.polyline([[a.lat,a.lon],[b.lat,b.lon]], {color, weight:5, opacity:.95, lineCap:'round'}).addTo(g);
+  }
+  L.circleMarker([track[0].lat,track[0].lon], {radius:5, color:'#fff', weight:2, fillColor:'#5b9dff', fillOpacity:1}).addTo(g);
+  g.addTo(map); trackLayer = g;
+  map.fitBounds(L.latLngBounds(track.map(p=>[p.lat,p.lon])), {padding:[30,30]});
+  const m = METRICS.find(x=>x.key===key);
+  if(toggleEl){ toggleEl.style.display='flex';
+    toggleEl.querySelectorAll('button').forEach(bt=>bt.classList.toggle('on', bt.dataset.k===key)); }
+  if(legendEl){ legendEl.style.display='block';
+    legendEl.innerHTML = `<div>${m.label} (${m.unit})</div>
+      <div class="bar" style="background:linear-gradient(90deg,${RAMP.join(',')})"></div>
+      <div class="row"><span>${lo.toFixed(0)}</span><span>${hi.toFixed(0)}</span></div>`; }
+  $('#rideHint').textContent = `— ${currentTrackData.distance_km} km · ${track.length} pts · colored by ${m.label.toLowerCase()}`;
+}
 function initMap(){
   map = L.map('map',{zoomControl:true}).setView([40.61,-73.98],12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+  initControls();
 }
 
 async function refreshAll(){

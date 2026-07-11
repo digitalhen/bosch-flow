@@ -137,6 +137,15 @@ Open **http://127.0.0.1:8099/** — the dashboard shows battery, range per assis
 mode, lifetime mode efficiency, firmware inventory, a map of your rides, and GPX
 downloads. Hit **⟳ Refresh** to force a fresh pull past the cache.
 
+Click any ride to draw its **GPS track colored by metric** — toggle between
+**Speed / Power / Cadence** (top-right of the map) to see where you were fast vs.
+where you actually put power down. Deep-link straight to a ride with
+`?ride=<activity-id>&metric=power_w`.
+
+> Note: Bosch records the *assist mode* only as a whole-ride total (distance per
+> mode), not per GPS point — so the track can be colored by speed/power/cadence,
+> but not by which assist mode you were in at each point.
+
 The server also starts a **background poller** (every 5 min) that powers events,
 webhooks, and notifications.
 
