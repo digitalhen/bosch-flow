@@ -19,12 +19,73 @@
   header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
   header .sub{color:var(--dim);font-size:13px}
   .live{margin-left:auto;font-size:12px;color:var(--dim)}
-  #refresh,#units{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+  #refresh,#cfgBtn{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
     border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
-  #units{margin-left:14px;min-width:42px}
+  #cfgBtn{margin-left:14px}
   #refresh{margin-left:8px}
-  #refresh:hover,#units:hover{border-color:var(--accent)}
+  #refresh:hover,#cfgBtn:hover{border-color:var(--accent)}
   #refresh:disabled{opacity:.6;cursor:default}
+  /* webhooks modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;
+    align-items:flex-start;justify-content:center;padding:56px 16px;z-index:1000;overflow:auto}
+  .modal-overlay[hidden]{display:none}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:560px;padding:20px}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .modal-head h2{margin:0;font-size:16px}
+  .modal-head button{background:transparent;border:0;color:var(--dim);font-size:18px;cursor:pointer}
+  .modal h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:18px 0 8px}
+  .wh-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .wh-info{flex:1;min-width:0}
+  .wh-url{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wh-ev{font-size:11px;color:var(--dim)}
+  .wh-row button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+  .wh-row .wh-del{color:var(--bad)}
+  .wh-add{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+  #whUrl{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:9px 11px;font-size:13px;width:100%}
+  .wh-events{display:flex;flex-wrap:wrap;gap:6px 14px}
+  .wh-chk{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:5px;cursor:pointer}
+  #whAdd{background:var(--accent);color:#0b0e12;border:0;border-radius:8px;padding:9px;font-weight:600;cursor:pointer}
+  .wh-secret{background:var(--panel2);border:1px solid var(--accent);border-radius:8px;
+    padding:10px;margin-top:10px;font-size:12px;word-break:break-all}
+  .wh-secret code{color:var(--accent)}
+  .wh-feed-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line)}
+  /* settings panel: tabs + panes */
+  .modal.lg{max-width:660px}
+  .tabs{display:flex;gap:2px;margin:2px 0 16px;border-bottom:1px solid var(--line)}
+  .tab{background:transparent;border:0;color:var(--dim);padding:8px 14px;cursor:pointer;
+    font-size:13px;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab:hover{color:var(--ink)}
+  .tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+  .pane{display:none}
+  .pane.on{display:block}
+  .pane p.lead{color:var(--dim);font-size:12px;margin:0 0 14px}
+  /* segmented control (units) */
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{background:var(--panel2);border:0;color:var(--dim);padding:9px 18px;
+    cursor:pointer;font-size:13px}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--accent);color:#0b0e12;font-weight:600}
+  .setrow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 0}
+  .setrow .lbl{font-size:13px}
+  .setrow .lbl small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+  /* API guide */
+  .api .grp{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:16px 0 4px}
+  .ep{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+  .ep .m{font-weight:700;font-size:10px;padding:2px 0;border-radius:4px;width:52px;text-align:center;flex:none}
+  .m.get{color:var(--accent);border:1px solid var(--accent)}
+  .m.post{color:var(--accent2);border:1px solid var(--accent2)}
+  .m.put{color:var(--warn);border:1px solid var(--warn)}
+  .m.del{color:var(--bad);border:1px solid var(--bad)}
+  .ep code{color:var(--ink);font-size:12px;word-break:break-all}
+  .ep .d{color:var(--dim);margin-left:auto;text-align:right;flex:none;max-width:44%}
+  .api pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    padding:11px 12px;overflow-x:auto;font-size:12px;color:var(--ink);margin:10px 0 0;position:relative}
+  .api pre code{color:var(--accent)}
+  .copy{position:absolute;top:6px;right:6px;background:var(--panel);border:1px solid var(--line);
+    color:var(--dim);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer}
+  .copy:hover{color:var(--ink);border-color:var(--accent)}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
     background:var(--accent);margin-right:6px;vertical-align:middle}
   .dot.off{background:var(--dim)}
@@ -89,7 +150,7 @@
   <h1 id="bikeName">Loading…</h1>
   <span class="sub" id="bikeModel"></span>
   <span class="live" id="live"></span>
-  <button id="units" title="Toggle km / miles">km</button>
+  <button id="cfgBtn" title="Settings — units, webhooks, API">⚙ Settings</button>
   <button id="refresh" title="Force a fresh fetch from Bosch (bypass cache)">⟳ Refresh</button>
 </header>
 <main>
@@ -128,6 +189,57 @@
     </div>
   </div>
 </main>
+
+<div id="cfgModal" class="modal-overlay" hidden>
+  <div class="modal lg">
+    <div class="modal-head"><h2>Settings</h2><button id="cfgClose" title="Close">✕</button></div>
+    <div class="tabs">
+      <button class="tab on" data-tab="units">Units</button>
+      <button class="tab" data-tab="webhooks">Webhooks</button>
+      <button class="tab" data-tab="api">API guide</button>
+    </div>
+
+    <!-- Units -->
+    <div class="pane on" data-pane="units">
+      <p class="lead">Distance, speed and elevation units. Synced with the menu bar app.</p>
+      <div class="setrow">
+        <div class="lbl">Measurement system<small>km · km/h · m &nbsp;or&nbsp; mi · mph · ft</small></div>
+        <div class="seg" id="unitSeg">
+          <button data-u="metric">Metric</button>
+          <button data-u="imperial">Imperial</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Webhooks -->
+    <div class="pane" data-pane="webhooks">
+      <p class="lead">Fire a signed POST to your URL when bike events happen. Each delivery carries an
+        <code>X-Bosch-Flow-Signature</code> HMAC header (verify it with the secret shown on creation).</p>
+      <div id="whList"></div>
+      <div class="wh-add">
+        <input id="whUrl" type="text" placeholder="https://your-endpoint.example/hook" />
+        <div id="whEvents" class="wh-events"></div>
+        <button id="whAdd">Add webhook</button>
+      </div>
+      <div id="whSecret"></div>
+      <h3>Recent events</h3>
+      <div id="whFeed"></div>
+    </div>
+
+    <!-- API guide -->
+    <div class="pane api" data-pane="api">
+      <p class="lead">A local REST facade over the Bosch eBike Flow cloud. Base URL
+        <code id="apiBase"></code> — no auth needed for a locally-run server. Responses are JSON.</p>
+      <div id="apiEndpoints"></div>
+      <h3>Try it</h3>
+      <pre><button class="copy">Copy</button><code id="apiCurl"></code></pre>
+      <p class="lead" style="margin-top:12px">Deep-link a ride on the dashboard:
+        <code>?ride=&lt;id&gt;&amp;metric=power_w</code> · open settings straight to a tab:
+        <code>?settings=api</code>.</p>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const $ = s => document.querySelector(s);
@@ -336,11 +448,144 @@ async function refreshAll(){
   finally{ FRESH = false; btn.disabled = false; btn.textContent = label; }
 }
 $('#refresh').onclick = refreshAll;
-(function initUnits(){ const b = $('#units');
-  const up = new URLSearchParams(location.search).get('units'); if(up==='imperial'||up==='metric') UNITS = up;
-  b.textContent = IMP() ? 'mi' : 'km';
-  b.onclick = () => { UNITS = IMP() ? 'metric' : 'imperial';
-    localStorage.setItem('units', UNITS); b.textContent = IMP() ? 'mi' : 'km'; renderAll(); }; })();
+(function initUnits(){
+  const seg = $('#unitSeg');
+  const paint = () => seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.u===UNITS));
+  // Apply a units value (server / deep-link / click); re-render only when it changed,
+  // push to the server only on an explicit local choice.
+  const apply = (u, opts={}) => {
+    if(u!=='imperial' && u!=='metric') return;
+    const changed = u !== UNITS;
+    UNITS = u; localStorage.setItem('units', u); paint();
+    if(opts.push) fetch('/api/prefs',{method:'PUT',headers:{'content-type':'application/json'},
+      body:JSON.stringify({units:u})}).catch(()=>{});
+    if(changed) renderAll();
+  };
+  seg.querySelectorAll('button').forEach(b=>b.onclick=()=>apply(b.dataset.u,{push:true}));
+  paint();
+  // A ?units= deep link wins for this load; otherwise the server pref is the shared source of truth.
+  const up = new URLSearchParams(location.search).get('units');
+  if(up==='imperial'||up==='metric') apply(up,{push:true});
+  else api('/prefs').then(p=>apply(p.units)).catch(()=>{});
+  // Live-sync: pick up a km/mi switch made from the menu bar app.
+  setInterval(() => api('/prefs').then(p=>apply(p.units)).catch(()=>{}), 4000);
+})();
+// ---- webhooks config modal ----
+const WH_EVENTS = ['battery.full','battery.low','battery.charging_started','battery.charging_stopped',
+  'charger.connected','charger.disconnected','ride.completed','firmware.changed'];
+function buildEventChecks(){
+  const box = $('#whEvents'); if(box.dataset.built) return;
+  box.innerHTML = `<label class="wh-chk"><input type="checkbox" data-all checked> All events</label>` +
+    WH_EVENTS.map(ev=>`<label class="wh-chk"><input type="checkbox" data-ev="${ev}"> ${ev}</label>`).join('');
+  const allBox = box.querySelector('[data-all]');
+  const sync = () => box.querySelectorAll('input[data-ev]').forEach(c=>{ c.disabled = allBox.checked; if(allBox.checked) c.checked = false; });
+  allBox.onchange = sync; sync(); box.dataset.built = '1';
+}
+async function loadWebhooks(){
+  const subs = await api('/webhooks');
+  $('#whList').innerHTML = subs.length ? subs.map(s=>`
+    <div class="wh-row"><div class="wh-info">
+      <div class="wh-url">${s.url}</div><div class="wh-ev">${(s.events||[]).join(', ')}</div></div>
+      <button class="wh-test" data-id="${s.id}">Test</button>
+      <button class="wh-del" data-id="${s.id}">Delete</button></div>`).join('')
+    : '<div class="muted" style="font-size:13px">No webhooks yet.</div>';
+  $('#whList').querySelectorAll('.wh-test').forEach(b=>b.onclick=()=>testWebhook(b.dataset.id));
+  $('#whList').querySelectorAll('.wh-del').forEach(b=>b.onclick=()=>deleteWebhook(b.dataset.id));
+}
+async function addWebhook(){
+  const url = $('#whUrl').value.trim();
+  if(!/^https?:\/\//.test(url)){ alert('Enter a valid http(s) URL'); return; }
+  const box = $('#whEvents'), all = box.querySelector('[data-all]').checked;
+  let events = all ? ['*'] : [...box.querySelectorAll('input[data-ev]:checked')].map(c=>c.dataset.ev);
+  if(!events.length) events = ['*'];
+  const r = await fetch('/api/webhooks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url,events})});
+  const d = await r.json();
+  if(!r.ok){ alert(d.error||'Failed to add webhook'); return; }
+  $('#whSecret').innerHTML = `<div class="wh-secret">Created ✓ — signing secret (shown once, copy it now):<br><code>${d.secret}</code></div>`;
+  $('#whUrl').value = ''; loadWebhooks();
+}
+async function testWebhook(id){
+  const r = await fetch(`/api/webhooks/${id}/test`,{method:'POST'}); const d = await r.json();
+  alert(d.ok ? `Test delivered ✓ (HTTP ${d.status})` : `Test failed: ${d.error||'unreachable'}`);
+}
+async function deleteWebhook(id){
+  if(!confirm('Delete this webhook?')) return;
+  await fetch(`/api/webhooks/${id}`,{method:'DELETE'}); loadWebhooks();
+}
+async function loadEventsFeed(){
+  const evs = await api('/events?limit=25');
+  const shown = evs.filter(e=>e.event && !e.event.startsWith('webhook.') && !e.event.startsWith('poll.')).slice(0,10);
+  $('#whFeed').innerHTML = shown.length ? shown.map(e=>`
+    <div class="wh-feed-row"><span>${e.event}</span><span class="muted">${new Date((e.at||0)*1000).toLocaleString()}</span></div>`).join('')
+    : '<div class="muted" style="font-size:13px">No events yet.</div>';
+}
+$('#whAdd').onclick = addWebhook;
+
+// ---- settings panel (tabbed: units / webhooks / api) ----
+function showTab(name){
+  document.querySelectorAll('#cfgModal .tab').forEach(t=>t.classList.toggle('on', t.dataset.tab===name));
+  document.querySelectorAll('#cfgModal .pane').forEach(p=>p.classList.toggle('on', p.dataset.pane===name));
+  if(name==='webhooks'){ buildEventChecks(); $('#whSecret').innerHTML=''; loadWebhooks(); loadEventsFeed(); }
+  if(name==='api') buildApiGuide();
+}
+function openSettings(tab){ $('#cfgModal').hidden = false; showTab(tab||'units'); }
+document.querySelectorAll('#cfgModal .tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
+$('#cfgBtn').onclick = () => openSettings('units');
+$('#cfgClose').onclick = () => { $('#cfgModal').hidden = true; };
+$('#cfgModal').onclick = e => { if(e.target.id==='cfgModal') $('#cfgModal').hidden = true; };
+
+// ---- API guide (endpoint reference + runnable example) ----
+function buildApiGuide(){
+  const box = $('#apiEndpoints'); const id = BID || '{bike_id}';
+  $('#apiBase').textContent = location.origin;
+  $('#apiCurl').textContent = `curl -s ${location.origin}/api/bikes/${id}/battery`;
+  if(box.dataset.built === id) return;   // rebuild once the real bike id resolves
+  const groups = [
+    ['Bike data', [
+      ['GET','/api/bikes','bikes on the account'],
+      ['GET',`/api/bikes/${id}/battery`,'live SoC, charging, range/mode, odometer'],
+      ['GET',`/api/bikes/${id}/profile`,'model, ABS/alarm, firmware, health'],
+      ['GET',`/api/bikes/${id}/stats`,'lifetime distance + Wh/km per mode'],
+    ]],
+    ['Rides & tracks', [
+      ['GET',`/api/bikes/${id}/rides?gps=1`,'ride list w/ GPS point counts'],
+      ['GET',`/api/bikes/${id}/rides/{aid}`,'one ride incl. per-point track'],
+      ['GET',`/api/bikes/${id}/rides/{aid}.gpx`,'ride as a GPX download'],
+      ['GET',`/api/bikes/${id}/tracks.geojson`,'all GPS rides as GeoJSON'],
+      ['GET',`/api/bikes/${id}/location`,'last-known position'],
+    ]],
+    ['Events & webhooks', [
+      ['GET','/api/events?limit=25','recent detected events'],
+      ['POST','/api/poll','force one poll cycle now'],
+      ['GET','/api/webhooks','list subscriptions'],
+      ['POST','/api/webhooks','add {url, events}'],
+      ['POST','/api/webhooks/{id}/test','send a test delivery'],
+      ['DELETE','/api/webhooks/{id}','remove a subscription'],
+    ]],
+    ['Preferences & auth', [
+      ['GET','/api/prefs','shared UI prefs {units}'],
+      ['PUT','/api/prefs','set {units: metric|imperial}'],
+      ['GET','/api/auth/status','who is logged in'],
+      ['GET','/api/auth/login','begin Bosch OAuth (returns auth_url)'],
+    ]],
+  ];
+  const cls = {GET:'get',POST:'post',PUT:'put',DELETE:'del'};
+  box.innerHTML = groups.map(([g,eps])=>
+    `<div class="grp">${g}</div>` + eps.map(([m,p,d])=>
+      `<div class="ep"><span class="m ${cls[m]}">${m}</span><code>${p}</code><span class="d">${d}</span></div>`).join('')
+  ).join('');
+  box.dataset.built = id;
+}
+document.querySelector('#cfgModal .copy').onclick = e => {
+  navigator.clipboard?.writeText($('#apiCurl').textContent);
+  e.target.textContent = 'Copied'; setTimeout(()=>e.target.textContent='Copy', 1200);
+};
+
+// deep links: ?webhooks or ?settings=units|webhooks|api open the panel directly
+(function(){ const p = new URLSearchParams(location.search);
+  if(p.has('webhooks')) openSettings('webhooks');
+  else if(p.has('settings')) openSettings(p.get('settings') || 'units'); })();
+
 boot();
 </script>
 </body>
