@@ -40,7 +40,7 @@ class TokenStore:
     """Persists {user_id: token_record} and transient PKCE verifiers."""
 
     def __init__(self, path: Path | None = None) -> None:
-        self.path = path or (_ROOT / config.USERS_FILE)
+        self.path = path or config.data_path(config.USERS_FILE)
         self._pending: dict[str, str] = {}  # state -> code_verifier (login flow)
         self._migrate_legacy()
 
@@ -57,7 +57,7 @@ class TokenStore:
         """Import a single-user bosch_tokens.json from the CLI POC, once."""
         if self.path.exists():
             return
-        legacy = _ROOT / config.LEGACY_TOKEN_FILE
+        legacy = config.data_path(config.LEGACY_TOKEN_FILE)
         if not legacy.exists():
             return
         rec = json.loads(legacy.read_text())

@@ -1,0 +1,3 @@
+# Build-time only (freezing the backend into the menu bar app).
+# Runtime needs just requirements.txt.
+pyinstaller>=6.0

@@ -1,8 +1,12 @@
 #!/bin/bash
-# Build "Bosch Flow.app" — a menu bar app (menu bar status + native notifications).
+# Build "Bosch Flow.app" — a menu bar app that embeds and supervises the Python
+# backend (frozen with PyInstaller), posts native notifications, and handles the
+# onebikeapp-ios:// login redirect for in-app token setup.
 set -e
 cd "$(dirname "$0")"
+ROOT="$(cd .. && pwd)"
 APP="Bosch Flow.app"
+PYI="$ROOT/.venv/bin/pyinstaller"
 rm -rf "$APP" build
 mkdir -p build "$APP/Contents/MacOS"
 
@@ -20,10 +24,32 @@ fi
 
 echo "compiling…"
 swiftc -O -o "build/BoschFlow" BoschFlow.swift \
-  -framework AppKit -framework SwiftUI -framework Combine -framework UserNotifications
+  -framework AppKit -framework SwiftUI -framework Combine \
+  -framework UserNotifications -framework ServiceManagement
+
+echo "freezing backend (PyInstaller)…"
+if [ ! -x "$PYI" ]; then
+  echo "  pyinstaller not found at $PYI — run: $ROOT/.venv/bin/pip install -r requirements-build.txt" >&2
+  exit 1
+fi
+BK_DIST="$ROOT/menubar/build/backend_dist"
+( cd "$ROOT" && "$PYI" --noconfirm --clean \
+    --name boschflowd \
+    --distpath "$BK_DIST" \
+    --workpath "$ROOT/menubar/build/backend_work" \
+    --specpath "$ROOT/menubar/build" \
+    --collect-submodules uvicorn \
+    --collect-submodules app \
+    --add-data "$ROOT/web:web" \
+    --hidden-import app.main \
+    --hidden-import httpx \
+    --hidden-import starlette \
+    serve.py >/dev/null )
 
 cp build/BoschFlow "$APP/Contents/MacOS/BoschFlow"
-mkdir -p "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/Resources/backend"
+# copy the frozen onedir contents so the executable lands at Resources/backend/boschflowd
+cp -R "$BK_DIST/boschflowd/." "$APP/Contents/Resources/backend/"
 cp build/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -44,6 +70,14 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>LSUIElement</key><true/>
 	<key>NSAppTransportSecurity</key>
 	<dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key><string>Bosch eBike Flow OAuth</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>onebikeapp-ios</string></array>
+		</dict>
+	</array>
 </dict>
 </plist>
 PLIST

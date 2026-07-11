@@ -16,3 +16,9 @@ menubar/Bosch Flow.app/
 
 # macOS
 .DS_Store
+
+# PyInstaller (only if run from repo root; build.sh keeps output under menubar/build)
+/build/
+/dist_pyi/
+/build_pyi/
+*.spec

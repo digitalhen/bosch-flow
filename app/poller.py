@@ -13,20 +13,25 @@ from . import config, events, notify, webhooks
 from .bosch import BoschClient, BoschError
 from .store import TokenStore
 
-_ROOT = Path(__file__).resolve().parent.parent
-_STATE = _ROOT / config.POLLER_STATE_FILE
-_LOG = _ROOT / config.EVENTS_LOG_FILE
+def _state_path() -> Path:
+    return config.data_path(config.POLLER_STATE_FILE)
+
+
+def _log_path() -> Path:
+    return config.data_path(config.EVENTS_LOG_FILE)
+
 
 # in-memory ring of recent events for GET /api/events
 _RECENT: deque[dict] = deque(maxlen=config.EVENTS_LOG_MAX)
 
 
 def _load_state() -> dict:
-    return json.loads(_STATE.read_text()) if _STATE.exists() else {}
+    p = _state_path()
+    return json.loads(p.read_text()) if p.exists() else {}
 
 
 def _save_state(state: dict) -> None:
-    _STATE.write_text(json.dumps(state, indent=2))
+    _state_path().write_text(json.dumps(state, indent=2))
 
 
 def recent_events(limit: int = 50) -> list[dict]:
@@ -35,15 +40,16 @@ def recent_events(limit: int = 50) -> list[dict]:
 
 def _log_event(rec: dict) -> None:
     _RECENT.append(rec)
-    with _LOG.open("a") as f:
+    with _log_path().open("a") as f:
         f.write(json.dumps(rec) + "\n")
 
 
 def _prime_recent() -> None:
     """Load the tail of the on-disk log into memory on startup."""
-    if not _LOG.exists():
+    log = _log_path()
+    if not log.exists():
         return
-    for line in _LOG.read_text().splitlines()[-config.EVENTS_LOG_MAX:]:
+    for line in log.read_text().splitlines()[-config.EVENTS_LOG_MAX:]:
         try:
             _RECENT.append(json.loads(line))
         except json.JSONDecodeError:

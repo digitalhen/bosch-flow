@@ -2,6 +2,11 @@
 # Developer-ID sign + notarize + staple "Bosch Flow.app" for warning-free
 # distribution. Produces dist/Bosch-Flow-1.0.zip (committed to the repo).
 #
+# The app now embeds a PyInstaller-frozen Python backend, so signing is done
+# inside-out: every nested Mach-O (CPython + dylibs + the boschflowd launcher)
+# is signed with the hardened runtime first, then the outer bundle. The frozen
+# CPython also needs two entitlements to run under the hardened runtime.
+#
 # One-time credential setup (keeps secrets OUT of this repo):
 #   xcrun notarytool store-credentials bosch-flow \
 #     --key   ~/.appstoreconnect/private_keys/AuthKey_XXXXX.p8 \
@@ -14,13 +19,36 @@ cd "$(dirname "$0")"
 APP="Bosch Flow.app"
 ID="${SIGN_ID:-Developer ID Application: Henry Williams (GBGWWD9Z22)}"
 PROFILE="${NOTARY_PROFILE:-bosch-flow}"
+BACKEND="$APP/Contents/Resources/backend"
 
 echo "› build"
 ./build.sh >/dev/null
 
-echo "› sign (Developer ID + hardened runtime + timestamp)"
-codesign --force --sign "$ID" --options runtime --timestamp "$APP"
+echo "› entitlements (frozen CPython needs JIT-ish memory + library loading)"
+ENT=build/entitlements.plist
+cat > "$ENT" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+	<key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict>
+</plist>
+PLIST
+
+echo "› sign nested backend code (dylibs/.so first, then the launcher)"
+find "$BACKEND" -type f \( -name "*.dylib" -o -name "*.so" \) -print0 \
+  | xargs -0 -I{} codesign --force --options runtime --timestamp \
+        --entitlements "$ENT" --sign "$ID" {}
+codesign --force --options runtime --timestamp --entitlements "$ENT" \
+  --sign "$ID" "$BACKEND/boschflowd"
+
+echo "› sign app (Developer ID + hardened runtime + timestamp)"
+codesign --force --options runtime --timestamp --entitlements "$ENT" \
+  --sign "$ID" "$APP"
 codesign -dvv "$APP" 2>&1 | grep -E "Authority=Developer ID Application|flags.*runtime"
+codesign --verify --deep --strict --verbose=2 "$APP"
 
 echo "› notarize (waits for Apple)"
 mkdir -p dist

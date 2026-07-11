@@ -2,14 +2,95 @@ import SwiftUI
 import AppKit
 import Combine
 import UserNotifications
+import ServiceManagement
 
 // MARK: - Config
-let apiBase = "http://127.0.0.1:8099"
+let apiPort = 8099
+let apiBase = "http://127.0.0.1:\(apiPort)"
 let notifiableEvents: Set<String> = [
     "battery.full", "battery.low", "battery.charging_started",
     "battery.charging_stopped", "charger.connected", "charger.disconnected",
     "ride.completed", "firmware.changed",
 ]
+
+// MARK: - Embedded backend
+/// Spawns and supervises the bundled Python backend (`Resources/backend/boschflowd`).
+/// When no bundled binary is present (dev builds run straight from `build/`), it
+/// stays out of the way and assumes a server is already running — so you can keep
+/// iterating with `uvicorn app.main:app` by hand.
+final class BackendController {
+    private var process: Process?
+
+    /// ~/Library/Application Support/Bosch Flow — a writable home for tokens,
+    /// event log, poller state (the .app bundle itself is read-only).
+    static var dataDir: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = base.appendingPathComponent("Bosch Flow", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    private var bundledBinary: URL? {
+        guard let res = Bundle.main.resourceURL else { return nil }
+        let bin = res.appendingPathComponent("backend/boschflowd", isDirectory: false)
+        return FileManager.default.isExecutableFile(atPath: bin.path) ? bin : nil
+    }
+
+    /// Start the backend if we ship one. No-op (returns true) in dev.
+    func start() {
+        guard process == nil, let bin = bundledBinary else { return }
+        let p = Process()
+        p.executableURL = bin
+        p.currentDirectoryURL = bin.deletingLastPathComponent()
+        var env = ProcessInfo.processInfo.environment
+        env["BOSCH_FLOW_DATA_DIR"] = Self.dataDir.path
+        env["BOSCH_FLOW_HOST"] = "127.0.0.1"
+        env["BOSCH_FLOW_PORT"] = String(apiPort)
+        p.environment = env
+        // Route the child's logs to a file so crashes are diagnosable.
+        let log = Self.dataDir.appendingPathComponent("backend.log")
+        FileManager.default.createFile(atPath: log.path, contents: nil)
+        if let handle = try? FileHandle(forWritingTo: log) {
+            p.standardOutput = handle
+            p.standardError = handle
+        }
+        do { try p.run(); process = p } catch { NSLog("backend failed to start: \(error)") }
+    }
+
+    func stop() {
+        process?.terminate()
+        process = nil
+    }
+
+    /// Poll `/` until the server answers 200 (or we give up).
+    func waitUntilHealthy(timeout: TimeInterval = 20) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.timeoutIntervalForRequest = 2
+        let session = URLSession(configuration: cfg)
+        while Date() < deadline {
+            if let url = URL(string: apiBase + "/api/auth/status"),
+               let (_, resp) = try? await session.data(from: url),
+               (resp as? HTTPURLResponse)?.statusCode == 200 { return }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+        }
+    }
+}
+
+// MARK: - Launch at Login
+enum LoginItem {
+    static var isEnabled: Bool {
+        if #available(macOS 13.0, *) { return SMAppService.mainApp.status == .enabled }
+        return false
+    }
+    static func set(_ on: Bool) {
+        guard #available(macOS 13.0, *) else { return }
+        do {
+            if on { try SMAppService.mainApp.register() }
+            else  { try SMAppService.mainApp.unregister() }
+        } catch { NSLog("login item toggle failed: \(error)") }
+    }
+}
 
 // MARK: - Models
 struct Bike: Decodable { let id: String; let brand: String?; let drive_unit: String? }
@@ -41,7 +122,14 @@ final class BikeStore: ObservableObject {
     @Published var lastError: String?
     @Published var chargeEta: Date?   // when charging, anchored full-charge time
 
+    // login / token state
+    @Published var loggedIn = false
+    @Published var loginUser: String?
+    @Published var loginStatus: String?   // transient hint shown while logging in
+
     private var bikeID: String?
+    private var pendingState: String?     // OAuth `state` for the in-flight login
+    private var loginPollTask: Task<Void, Never>?
     private var lastEventSeen: Double = Date().timeIntervalSince1970
     private var baselined = false
 
@@ -61,7 +149,114 @@ final class BikeStore: ObservableObject {
         } catch { return nil }
     }
 
+    /// POST JSON, returning (statusCode, body) — nil on transport failure.
+    @discardableResult
+    private func post(_ path: String, _ body: [String: Any]) async -> (Int, Data)? {
+        guard let url = URL(string: apiBase + path) else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (data, resp) = try await session.data(for: req)
+            return ((resp as? HTTPURLResponse)?.statusCode ?? 0, data)
+        } catch { return nil }
+    }
+
+    // MARK: Login / token
+
+    /// Read who (if anyone) is currently logged in.
+    func checkAuthStatus() async {
+        guard let d = await get("/api/auth/status"),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
+        loggedIn = (j["logged_in"] as? Bool) ?? false
+        loginUser = j["user"] as? String
+    }
+
+    /// Kick off a login: ask the server for the Bosch auth URL, open it in the
+    /// browser, and start polling for completion. The redirect comes back via
+    /// the onebikeapp-ios:// URL scheme (auto-capture) or the paste fallback.
+    func beginLogin() async {
+        loginStatus = "Opening Bosch login…"
+        guard let d = await get("/api/auth/login"),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let urlStr = j["auth_url"] as? String, let url = URL(string: urlStr) else {
+            loginStatus = "Couldn't start login — is the server running?"
+            return
+        }
+        pendingState = j["state"] as? String
+        NSWorkspace.shared.open(url)
+        loginStatus = "Waiting for Bosch login in your browser…"
+        startLoginPolling()
+    }
+
+    /// Handle the onebikeapp-ios:// deep link macOS hands back after login.
+    func handleRedirect(_ url: URL) async {
+        loginStatus = "Completing login…"
+        let (code, _) = await post("/api/auth/redirect",
+                                   ["url": url.absoluteString, "state": pendingState as Any]) ?? (0, Data())
+        await finishLogin(ok: code == 200, failNote: "Login was rejected — try again.")
+    }
+
+    /// Paste-fallback: the user pasted a bare code or the full redirect URL.
+    func submitPastedCode(_ raw: String) async {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        loginStatus = "Completing login…"
+        let (code, _) = await post("/api/auth/callback",
+                                   ["code": trimmed, "state": pendingState as Any]) ?? (0, Data())
+        await finishLogin(ok: code == 200, failNote: "That code didn't work — try again.")
+    }
+
+    private func finishLogin(ok: Bool, failNote: String) async {
+        loginPollTask?.cancel(); loginPollTask = nil
+        if ok {
+            pendingState = nil
+            bikeID = nil            // re-resolve against the new account
+            loginStatus = "Logged in ✓"
+            await checkAuthStatus()
+            await refresh()
+        } else {
+            loginStatus = failNote
+        }
+    }
+
+    /// Poll /api/auth/status until a background auto-capture lands (or we give up).
+    private func startLoginPolling() {
+        loginPollTask?.cancel()
+        loginPollTask = Task { [weak self] in
+            for _ in 0..<90 {                     // ~3 min at 2s
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if Task.isCancelled { return }
+                guard let self else { return }
+                if let d = await self.get("/api/auth/status"),
+                   let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                   let last = j["last"] as? [String: Any], (last["ok"] as? Bool) == true {
+                    await self.finishLogin(ok: true, failNote: "")
+                    return
+                }
+            }
+            self?.loginStatus = "Login timed out. Reopen and try again, or paste the code."
+        }
+    }
+
     func refresh() async {
+        // Is the server even up? auth/status is unauthenticated and cheap.
+        guard let sd = await get("/api/auth/status"),
+              let sj = try? JSONSerialization.jsonObject(with: sd) as? [String: Any] else {
+            serverUp = false
+            lastError = "Can't reach \(apiBase) — starting the backend…"
+            return
+        }
+        serverUp = true
+        loggedIn = (sj["logged_in"] as? Bool) ?? false
+        loginUser = sj["user"] as? String
+        guard loggedIn else {
+            lastError = "Not logged in — choose “Log in / Update token”."
+            return
+        }
+        lastError = nil
+
         // resolve bike id once
         if bikeID == nil {
             if let d = await get("/api/bikes"),
@@ -69,8 +264,7 @@ final class BikeStore: ObservableObject {
                 bikeID = b.id
                 bikeName = "\(b.brand ?? "eBike") \(b.drive_unit ?? "")".trimmingCharacters(in: .whitespaces)
             } else {
-                serverUp = false
-                lastError = "Can't reach \(apiBase) — is the server running?"
+                lastError = "Logged in, but no bikes returned yet."
                 return
             }
         }
@@ -171,6 +365,7 @@ enum Notifier {
 struct DetailView: View {
     @ObservedObject var store: BikeStore
     @AppStorage("useImperial") private var useImperial = false
+    @State private var launchAtLogin = LoginItem.isEnabled
 
     private func dist(_ km: Double) -> String {
         useImperial ? String(format: "%.1f mi", km*0.621371) : String(format: "%.1f km", km)
@@ -185,6 +380,13 @@ struct DetailView: View {
             if !store.serverUp {
                 Label(store.lastError ?? "Server unreachable", systemImage: "wifi.slash")
                     .font(.caption).foregroundStyle(.secondary)
+            } else if !store.loggedIn {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Not logged in", systemImage: "person.crop.circle.badge.questionmark")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text("Connect your Bosch eBike Flow account to see battery, rides and range.")
+                        .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
             } else if let b = store.battery {
                 HStack(spacing: 10) {
                     Image(systemName: (b.is_charging ?? false) ? "battery.100.bolt" : "battery.100")
@@ -230,6 +432,34 @@ struct DetailView: View {
             }
 
             Divider()
+
+            // Account / token
+            HStack(spacing: 8) {
+                if store.loggedIn {
+                    Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                    Text(store.loginUser.map { "Signed in · \($0.prefix(8))…" } ?? "Signed in")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                } else {
+                    Image(systemName: "key.fill").foregroundStyle(.orange)
+                    Text("Sign in to Bosch").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if let s = store.loginStatus {
+                Text(s).font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Button(store.loggedIn ? "Update token…" : "Log in…") {
+                    Task { await store.beginLogin() }
+                }
+                Button("Paste code…") { promptForCode(store) }
+            }.font(.caption)
+
+            Toggle("Launch at login", isOn: $launchAtLogin)
+                .toggleStyle(.checkbox).font(.caption)
+                .onChange(of: launchAtLogin) { on in LoginItem.set(on) }
+
+            Divider()
             HStack {
                 Button("Dashboard") { NSWorkspace.shared.open(URL(string: apiBase)!) }
                 Button("Refresh") { Task { await store.refresh() } }
@@ -254,10 +484,28 @@ struct DetailView: View {
     }
 }
 
+/// Paste fallback for the login flow: prompt for the `code` (or full redirect
+/// URL) when the onebikeapp-ios:// auto-capture didn't fire.
+@MainActor
+func promptForCode(_ store: BikeStore) {
+    let alert = NSAlert()
+    alert.messageText = "Paste login code"
+    alert.informativeText = "After logging in, copy the code from the onebikeapp-ios:// redirect (or paste the whole URL) here."
+    alert.addButton(withTitle: "Save")
+    alert.addButton(withTitle: "Cancel")
+    let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+    field.placeholderString = "code or onebikeapp-ios://…"
+    alert.accessoryView = field
+    NSApp.activate(ignoringOtherApps: true)
+    if alert.runModal() == .alertFirstButtonReturn {
+        Task { await store.submitPastedCode(field.stringValue) }
+    }
+}
+
 // MARK: - Status bar
 @MainActor
 final class StatusBarController: NSObject {
-    private let store = BikeStore()
+    let store = BikeStore()
     private var item: NSStatusItem!
     private let popover = NSPopover()
     private var timer: Timer?
@@ -319,8 +567,27 @@ final class StatusBarController: NSObject {
 // MARK: - App
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var controller: StatusBarController?
+    let backend = BackendController()
+
     func applicationDidFinishLaunching(_ n: Notification) {
-        controller = StatusBarController()
+        controller = StatusBarController()      // shows the menu bar item immediately
+        backend.start()                          // no-op in dev; spawns the bundled server otherwise
+        Task { [weak self] in
+            await self?.backend.waitUntilHealthy()
+            await self?.controller?.store.refresh()
+        }
+    }
+
+    /// macOS routes the onebikeapp-ios:// login redirect here (registered scheme).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let store = controller?.store else { return }
+        for url in urls where url.scheme == "onebikeapp-ios" {
+            Task { await store.handleRedirect(url) }
+        }
+    }
+
+    func applicationWillTerminate(_ n: Notification) {
+        backend.stop()
     }
 }
 

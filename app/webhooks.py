@@ -12,16 +12,17 @@ import httpx
 
 from . import config
 
-_ROOT = Path(__file__).resolve().parent.parent
-_PATH = _ROOT / config.WEBHOOKS_FILE
+def _path() -> Path:
+    return config.data_path(config.WEBHOOKS_FILE)
 
 
 def _read() -> list[dict]:
-    return json.loads(_PATH.read_text()) if _PATH.exists() else []
+    p = _path()
+    return json.loads(p.read_text()) if p.exists() else []
 
 
 def _write(subs: list[dict]) -> None:
-    _PATH.write_text(json.dumps(subs, indent=2))
+    _path().write_text(json.dumps(subs, indent=2))
 
 
 def list_subs() -> list[dict]:

@@ -24,6 +24,25 @@ WEBHOOKS_FILE = "bosch_webhooks.json"  # outbound webhook subscriptions
 POLLER_STATE_FILE = "bosch_poller_state.json"  # last-known snapshot per bike
 EVENTS_LOG_FILE = "bosch_events.jsonl"  # append-only event log
 
+# Where those files live. Defaults to the repo root (dev), but the packaged
+# menu bar app sets BOSCH_FLOW_DATA_DIR to ~/Library/Application Support/Bosch
+# Flow, since a signed .app bundle is read-only.
+import os as _os
+from pathlib import Path as _Path
+
+_REPO_ROOT = _Path(__file__).resolve().parent.parent
+
+
+def data_dir() -> _Path:
+    override = _os.environ.get("BOSCH_FLOW_DATA_DIR")
+    d = _Path(override).expanduser() if override else _REPO_ROOT
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def data_path(filename: str) -> _Path:
+    return data_dir() / filename
+
 # --- Event poller -----------------------------------------------------------
 POLL_INTERVAL = 300     # seconds between poll cycles
 BATTERY_LOW_PCT = 20    # threshold for the battery.low event

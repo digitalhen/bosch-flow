@@ -129,8 +129,14 @@ just run `login` again.
 
 ## 3. Run the API + dashboard
 
+> On macOS you can skip this — the [menu bar app](#4-menu-bar-app-macos) embeds and
+> runs this backend for you. Use the steps below for development, non-Mac hosts, or
+> to run the server headless.
+
 ```bash
 ./.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8099 --reload
+# or, honoring BOSCH_FLOW_DATA_DIR / HOST / PORT:
+./.venv/bin/python serve.py
 ```
 
 Open **http://127.0.0.1:8099/** — the dashboard shows battery, range per assist
@@ -157,6 +163,13 @@ A native menu bar app that shows live battery % and posts **native desktop
 notifications** on events (this is the reliable way to get banners — a proper app
 gets its own notification permission).
 
+**It's self-contained — no separate server, no Python needed.** The app *embeds*
+the whole backend (section 3) as a frozen binary, launches it on startup, and
+shuts it down on quit. You can still `curl http://127.0.0.1:8099` or open the
+dashboard while the app is running; it's the same REST API, just supervised for
+you. Its token/state files live in `~/Library/Application Support/Bosch Flow/`
+(with a `backend.log` there if you need to debug).
+
 **Prebuilt:** a signed build is committed at **`menubar/dist/Bosch-Flow-1.0.zip`** —
 just unzip and drag to `/Applications` (no Xcode needed). The release is signed with
 a **Developer ID** and **notarized** by Apple, so it opens without warnings. If you
@@ -164,27 +177,36 @@ ever build/sign it yourself and macOS flags it, right-click → **Open** once.
 
 Maintainers: **`menubar/notarize.sh`** does the full Developer-ID sign → notarize →
 staple → package flow (needs a `notarytool` keychain profile and an in-effect Apple
-Developer agreement).
+Developer agreement). It signs the embedded backend inside-out with the entitlements
+CPython needs under the hardened runtime.
 
 **Or build it yourself:**
 
 ```bash
 cd menubar
-./build.sh                 # compiles + signs "Bosch Flow.app" (needs swiftc)
+../.venv/bin/pip install -r ../requirements-build.txt   # once: PyInstaller
+./build.sh                 # compiles Swift + freezes the backend into the .app
 open "Bosch Flow.app"
 ```
 
 On first launch macOS asks **"Bosch Flow" would like to send notifications** —
-click **Allow** (this is what makes banners work). The app talks to the local API
-at `http://127.0.0.1:8099`, so **keep the server (section 3) running**.
+click **Allow** (this is what makes banners work).
 
 - Menu bar shows `🚲 100%` (⚡ when charging).
 - Click it for a popover: battery, ranges, odometer, latest ride, **Dashboard**
   and **Refresh** buttons.
+- **Log in / Update token…** — signs you into Bosch right from the app: it opens
+  the Bosch login in your browser and captures the `onebikeapp-ios://` redirect
+  automatically (the app registers that URL scheme). If the hand-off doesn't fire,
+  **Paste code…** takes the code (or the whole redirect URL) instead. No CLI,
+  DevTools, or `curl` needed for setup.
+- **Launch at login** — a checkbox that enrolls the app as a macOS login item
+  (via `SMAppService`); untick to remove it.
 - New events (battery full, ride logged, …) fire native banners.
 
-To have it start at login: System Settings → General → Login Items → add
-`Bosch Flow.app`.
+> Building the app requires **PyInstaller** (`requirements-build.txt`) in the venv
+> and `swiftc` (Xcode command-line tools). The *runtime* still needs nothing but
+> the frozen bundle.
 
 ---
 
@@ -197,7 +219,9 @@ emits edge-triggered events:
 `battery.charging_stopped` · `charger.connected` · `charger.disconnected` ·
 `ride.completed` · `firmware.changed`
 
-Register an outbound webhook (fired with an HMAC signature):
+Manage webhooks from the dashboard's **Webhooks** button (add/delete/test, pick
+events, see a live event feed), or via the API — register one (fired with an HMAC
+signature):
 
 ```bash
 curl -s -XPOST http://127.0.0.1:8099/api/webhooks \
@@ -232,6 +256,15 @@ Edit `app/config.py`:
 
 The macOS notification sender identity is in `NOTIFY_SENDER` (only used when
 `NOTIFY_ENABLED = True`).
+
+**Environment variables** (read by `serve.py`, and set automatically by the menu
+bar app):
+
+| Var | Default | Meaning |
+|-----|---------|---------|
+| `BOSCH_FLOW_DATA_DIR` | repo root | where tokens/state/event log are written (the app points this at `~/Library/Application Support/Bosch Flow`) |
+| `BOSCH_FLOW_HOST` | `127.0.0.1` | bind host |
+| `BOSCH_FLOW_PORT` | `8099` | bind port |
 
 ---
 
@@ -282,8 +315,10 @@ powered on, or alarmed**; otherwise you get last-known values.
   use with your own account; not a basis for a public multi-user product — that
   needs official [Bosch Connected Biking Platform](https://www.bosch-ebike.com/en/business/connected-biking-platform)
   partner API access (your own client + redirect URIs → a real one-click web login).
-- **Login is manual.** The client only accepts the app's deep-link redirect URIs,
-  so there's no hosted browser-redirect login — hence the DevTools code copy.
+- **Login uses the app's deep-link redirect.** There's no hosted browser-redirect
+  login, so the CLI/API path relies on copying the `code` from the redirect. The
+  **menu bar app closes this loop**: it registers the `onebikeapp-ios://` scheme and
+  captures the redirect automatically (with a paste fallback).
 - **Location.** GPS tracks exist only for rides recorded with the phone. The app's
   live "where's my bike" pin (anti-theft) is served by a separate host whose exact
   route isn't mapped here.
@@ -299,9 +334,11 @@ powered on, or alarmed**; otherwise you get last-known values.
 
 ```
 bosch_ebike_poc.py      zero-dependency CLI (login / bikes / fetch / raw)
+serve.py                backend entry point (honors BOSCH_FLOW_DATA_DIR/HOST/PORT)
 requirements.txt        server deps (starlette, uvicorn, httpx)
+requirements-build.txt  build-only deps (PyInstaller, to freeze the backend)
 app/
-  config.py             hosts, OAuth, cache TTLs, poller + notify settings
+  config.py             hosts, OAuth, cache TTLs, poller + notify, data dir
   auth.py               OAuth2 + PKCE helpers
   store.py              multi-user, file-backed token store
   bosch.py              async facade: raw endpoints + normalization + cache
@@ -313,9 +350,10 @@ app/
   main.py               Starlette routes + serves the dashboard
 web/index.html          the dashboard (Leaflet map + cards)
 menubar/
-  BoschFlow.swift       menu bar app source
+  BoschFlow.swift       menu bar app: supervises backend + login + notifications
   makeicon.swift        app-icon generator
-  build.sh              compile + bundle + sign "Bosch Flow.app"
+  build.sh              compile Swift + freeze backend + bundle + sign the .app
+  notarize.sh           Developer-ID sign (inside-out) + notarize + staple
 ```
 
 Token / state files (git-ignored, created at runtime): `bosch_tokens.json`,
