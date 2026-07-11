@@ -158,9 +158,13 @@ notifications** on events (this is the reliable way to get banners — a proper 
 gets its own notification permission).
 
 **Prebuilt:** a signed build is committed at **`menubar/dist/Bosch-Flow-1.0.zip`** —
-just unzip and drag to `/Applications` (no Xcode needed). It's ad-hoc signed, so if
-macOS says it's from an unidentified developer, right-click → **Open** once (or run
-`xattr -cr "Bosch Flow.app"`).
+just unzip and drag to `/Applications` (no Xcode needed). The release is signed with
+a **Developer ID** and **notarized** by Apple, so it opens without warnings. If you
+ever build/sign it yourself and macOS flags it, right-click → **Open** once.
+
+Maintainers: **`menubar/notarize.sh`** does the full Developer-ID sign → notarize →
+staple → package flow (needs a `notarytool` keychain profile and an in-effect Apple
+Developer agreement).
 
 **Or build it yourself:**
 
