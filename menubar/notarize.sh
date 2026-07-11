@@ -37,10 +37,15 @@ cat > "$ENT" <<'PLIST'
 </plist>
 PLIST
 
-echo "› sign nested backend code (dylibs/.so first, then the launcher)"
-find "$BACKEND" -type f \( -name "*.dylib" -o -name "*.so" \) -print0 \
-  | xargs -0 -I{} codesign --force --options runtime --timestamp \
-        --entitlements "$ENT" --sign "$ID" {}
+echo "› sign every nested Mach-O in the backend (dylibs, .so, Python.framework, launcher)"
+# Detect Mach-O by content, not extension — the Python.framework binary has no
+# suffix and would otherwise keep its ad-hoc signature (fails notarization).
+while IFS= read -r -d '' f; do
+  if file -b "$f" | grep -q "Mach-O"; then
+    codesign --force --options runtime --timestamp --entitlements "$ENT" --sign "$ID" "$f"
+  fi
+done < <(find "$BACKEND" -type f -print0)
+# sign the launcher last — it loads everything above
 codesign --force --options runtime --timestamp --entitlements "$ENT" \
   --sign "$ID" "$BACKEND/boschflowd"
 
