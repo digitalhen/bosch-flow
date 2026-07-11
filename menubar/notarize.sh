@@ -49,6 +49,18 @@ done < <(find "$BACKEND" -type f -print0)
 codesign --force --options runtime --timestamp --entitlements "$ENT" \
   --sign "$ID" "$BACKEND/boschflowd"
 
+echo "› sign Sparkle.framework inside-out (its own signatures aren't Developer ID)"
+SPK="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+if [ -d "$SPK" ]; then
+  codesign --force --options runtime --timestamp --sign "$ID" "$SPK/XPCServices/Installer.xpc/Contents/MacOS/Installer"
+  codesign --force --options runtime --timestamp --sign "$ID" "$SPK/XPCServices/Downloader.xpc/Contents/MacOS/Downloader"
+  codesign --force --options runtime --timestamp --sign "$ID" "$SPK/Autoupdate"
+  codesign --force --options runtime --timestamp --sign "$ID" "$SPK/Updater.app"
+  codesign --force --options runtime --timestamp --sign "$ID" "$SPK/XPCServices/Installer.xpc"
+  codesign --force --options runtime --timestamp --sign "$ID" "$SPK/XPCServices/Downloader.xpc"
+  codesign --force --options runtime --timestamp --sign "$ID" "$APP/Contents/Frameworks/Sparkle.framework"
+fi
+
 echo "› sign app (Developer ID + hardened runtime + timestamp)"
 codesign --force --options runtime --timestamp --entitlements "$ENT" \
   --sign "$ID" "$APP"
@@ -63,8 +75,10 @@ xcrun notarytool submit dist/_notarize.zip --keychain-profile "$PROFILE" --wait
 echo "› staple + package"
 xcrun stapler staple "$APP"
 rm -f dist/_notarize.zip
-ditto -c -k --keepParent "$APP" dist/Bosch-Flow-1.0.zip
+VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+ZIP="dist/Bosch-Flow-${VER}.zip"
+ditto -c -k --keepParent "$APP" "$ZIP"
 
 echo "› verify"
 spctl -a -vv "$APP"
-echo "done -> dist/Bosch-Flow-1.0.zip (notarized + stapled)"
+echo "done -> $ZIP (notarized + stapled)"

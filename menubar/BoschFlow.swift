@@ -3,6 +3,7 @@ import AppKit
 import Combine
 import UserNotifications
 import ServiceManagement
+import Sparkle
 
 // MARK: - Config
 let apiPort = 8099
@@ -75,6 +76,25 @@ final class BackendController {
             try? await Task.sleep(nanoseconds: 400_000_000)
         }
     }
+}
+
+// MARK: - Auto-update (Sparkle)
+/// Wraps Sparkle's updater. Background checks run automatically (SUEnableAutomaticChecks
+/// in Info.plist); "Check for Updates…" drives a manual check. Feed + EdDSA key are in
+/// Info.plist (SUFeedURL / SUPublicEDKey); updates ship as notarized zips on GitHub Releases.
+@MainActor
+final class UpdaterController: ObservableObject {
+    static let shared = UpdaterController()
+    private let controller: SPUStandardUpdaterController
+    @Published var canCheck = false
+
+    private init() {
+        controller = SPUStandardUpdaterController(startingUpdater: true,
+                                                  updaterDelegate: nil, userDriverDelegate: nil)
+        controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
+    }
+
+    func checkForUpdates() { controller.checkForUpdates(nil) }
 }
 
 // MARK: - Launch at Login
@@ -390,6 +410,7 @@ enum Notifier {
 // MARK: - Popover UI
 struct DetailView: View {
     @ObservedObject var store: BikeStore
+    @ObservedObject private var updater = UpdaterController.shared
     @State private var launchAtLogin = LoginItem.isEnabled
 
     private var useImperial: Bool { store.useImperial }
@@ -481,9 +502,14 @@ struct DetailView: View {
                 Button("Paste code…") { promptForCode(store) }
             }.font(.caption)
 
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .toggleStyle(.checkbox).font(.caption)
-                .onChange(of: launchAtLogin) { on in LoginItem.set(on) }
+            HStack {
+                Toggle("Launch at login", isOn: $launchAtLogin)
+                    .toggleStyle(.checkbox).font(.caption)
+                    .onChange(of: launchAtLogin) { on in LoginItem.set(on) }
+                Spacer()
+                Button("Check for Updates…") { UpdaterController.shared.checkForUpdates() }
+                    .font(.caption).disabled(!updater.canCheck)
+            }
 
             Divider()
             HStack {
@@ -598,6 +624,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ n: Notification) {
         controller = StatusBarController()      // shows the menu bar item immediately
+        _ = UpdaterController.shared             // start Sparkle (background update checks)
         claimURLScheme()                         // own onebikeapp-ios:// so login redirects land here
         backend.start()                          // no-op in dev; spawns the bundled server otherwise
         Task { [weak self] in

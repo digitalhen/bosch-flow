@@ -25,7 +25,9 @@ fi
 echo "compiling…"
 swiftc -O -o "build/BoschFlow" BoschFlow.swift \
   -framework AppKit -framework SwiftUI -framework Combine \
-  -framework UserNotifications -framework ServiceManagement
+  -framework UserNotifications -framework ServiceManagement \
+  -F vendor -framework Sparkle \
+  -Xlinker -rpath -Xlinker @executable_path/../Frameworks
 
 echo "freezing backend (PyInstaller)…"
 if [ ! -x "$PYI" ]; then
@@ -52,6 +54,17 @@ mkdir -p "$APP/Contents/Resources/backend"
 cp -R "$BK_DIST/boschflowd/." "$APP/Contents/Resources/backend/"
 cp build/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+echo "embedding Sparkle.framework…"
+mkdir -p "$APP/Contents/Frameworks"
+# strip build-only pieces (Headers/Modules) from the embedded copy — runtime doesn't need them
+ditto vendor/Sparkle.framework "$APP/Contents/Frameworks/Sparkle.framework"
+rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Headers" \
+       "$APP/Contents/Frameworks/Sparkle.framework/PrivateHeaders" \
+       "$APP/Contents/Frameworks/Sparkle.framework/Modules" \
+       "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Headers" \
+       "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/PrivateHeaders" \
+       "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Modules"
+
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -70,6 +83,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>LSUIElement</key><true/>
 	<key>NSAppTransportSecurity</key>
 	<dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+	<key>SUFeedURL</key><string>https://github.com/digitalhen/bosch-flow/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key><string>kfnnicvmSp/Ya4BsHnp66K6DQtmAaGppupoFE/d71gU=</string>
+	<key>SUEnableAutomaticChecks</key><true/>
+	<key>SUAutomaticallyUpdate</key><false/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -82,5 +99,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
+# version is env-overridable so the release script can stamp each build
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${APP_VERSION:-1.0}" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${APP_BUILD:-1}" "$APP/Contents/Info.plist"
+
 codesign --force --deep -s - "$APP"
-echo "built: $(pwd)/$APP"
+echo "built: $(pwd)/$APP ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist") build $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist"))"

@@ -13,6 +13,9 @@ __pycache__/
 # macOS menu bar app build artifacts
 menubar/build/
 menubar/Bosch Flow.app/
+# generated per release (published to GitHub Releases, not committed)
+menubar/dist/appcast.xml
+menubar/dist/_notarize.zip
 
 # macOS
 .DS_Store

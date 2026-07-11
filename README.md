@@ -202,11 +202,30 @@ click **Allow** (this is what makes banners work).
   DevTools, or `curl` needed for setup.
 - **Launch at login** — a checkbox that enrolls the app as a macOS login item
   (via `SMAppService`); untick to remove it.
+- **Check for Updates…** — the app auto-updates itself via **Sparkle**: it checks
+  for a new version in the background and can install it with one click. No App
+  Store needed.
 - New events (battery full, ride logged, …) fire native banners.
 
 > Building the app requires **PyInstaller** (`requirements-build.txt`) in the venv
 > and `swiftc` (Xcode command-line tools). The *runtime* still needs nothing but
 > the frozen bundle.
+
+**Auto-update (maintainers).** Updates ship as notarized zips on **GitHub Releases**;
+the app's `SUFeedURL` reads `releases/latest/download/appcast.xml`. Cut a release with:
+
+```bash
+cd menubar
+./make-release.sh <version> <build#> "release notes"
+# e.g. ./make-release.sh 1.1 2 "Embedded backend, in-app login, unit sync."
+```
+
+That builds + notarizes at the given version (`notarize.sh`), EdDSA-signs the zip for
+Sparkle (`sparkle_sign.swift`, using `~/.appstoreconnect/private_keys/sparkle_ed25519.key`),
+generates `appcast.xml`, and publishes both to GitHub Releases via `gh`. The **build
+number must increase every release** — Sparkle compares it to detect updates. The
+Sparkle framework is vendored at `menubar/vendor/Sparkle.framework`; `notarize.sh`
+signs its nested helpers inside-out.
 
 ---
 
