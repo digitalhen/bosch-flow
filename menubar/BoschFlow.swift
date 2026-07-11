@@ -571,10 +571,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ n: Notification) {
         controller = StatusBarController()      // shows the menu bar item immediately
+        claimURLScheme()                         // own onebikeapp-ios:// so login redirects land here
         backend.start()                          // no-op in dev; spawns the bundled server otherwise
         Task { [weak self] in
             await self?.backend.waitUntilHealthy()
             await self?.controller?.store.refresh()
+        }
+    }
+
+    /// Register as the default handler for the Bosch login scheme, so the browser
+    /// hands the onebikeapp-ios:// redirect straight to us. Self-heals wherever the
+    /// app lives; only claims if we're not already the resolved handler.
+    private func claimURLScheme() {
+        let scheme = "onebikeapp-ios"
+        let ws = NSWorkspace.shared
+        let me = Bundle.main.bundleURL
+        if let cur = URL(string: "\(scheme)://x"),
+           ws.urlForApplication(toOpen: cur)?.standardizedFileURL == me.standardizedFileURL {
+            return  // already ours
+        }
+        ws.setDefaultApplication(at: me, toOpenURLsWithScheme: scheme) { err in
+            if let err { NSLog("could not claim \(scheme): \(err)") }
         }
     }
 
