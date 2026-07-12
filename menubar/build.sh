@@ -53,6 +53,7 @@ mkdir -p "$APP/Contents/Resources/backend"
 # copy the frozen onedir contents so the executable lands at Resources/backend/boschflowd
 cp -R "$BK_DIST/boschflowd/." "$APP/Contents/Resources/backend/"
 cp build/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp bikebell.aiff "$APP/Contents/Resources/bikebell.aiff"   # custom notification sound
 
 echo "embedding Sparkle.framework…"
 mkdir -p "$APP/Contents/Frameworks"

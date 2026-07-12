@@ -147,6 +147,8 @@ final class BikeStore: ObservableObject {
     @Published var serverUp = false
     @Published var lastError: String?
     @Published var chargeEta: Date?   // when charging, anchored full-charge time
+    @Published var chargeEtaEstimated = false  // true when we computed it (Bosch gave no value)
+    private var chargeSamples: [(at: Date, level: Int)] = []  // SoC over time, for the estimate
 
     // login / token state
     @Published var loggedIn = false
@@ -328,12 +330,7 @@ final class BikeStore: ObservableObject {
         if let d = await get("/api/bikes/\(id)/battery"),
            let bat = try? JSONDecoder().decode(Battery.self, from: d) {
             battery = bat; serverUp = true; lastError = nil
-            // anchor a live countdown to Bosch's latest "minutes to full" estimate
-            if (bat.is_charging ?? false), let mins = bat.remaining_charging_time, mins > 0 {
-                chargeEta = Date().addingTimeInterval(mins * 60)
-            } else {
-                chargeEta = nil
-            }
+            updateChargeEta(bat)
         }
         if let d = await get("/api/bikes/\(id)/rides?gps=1"),
            let r = try? JSONDecoder().decode([Ride].self, from: d) {
@@ -363,11 +360,48 @@ final class BikeStore: ObservableObject {
         if let newest = events.map({ $0.1 }).max() { lastEventSeen = max(lastEventSeen, newest) }
     }
 
+    /// Prefer Bosch's own "minutes to full"; when it's absent (often for a while
+    /// after plugging in), estimate from the observed charge rate and flag it (~).
+    private func updateChargeEta(_ bat: Battery) {
+        guard bat.is_charging ?? false else {
+            chargeEta = nil; chargeEtaEstimated = false; chargeSamples.removeAll(); return
+        }
+        if let mins = bat.remaining_charging_time, mins > 0 {   // real value wins
+            chargeEta = Date().addingTimeInterval(mins * 60)
+            chargeEtaEstimated = false
+            chargeSamples.removeAll()
+            return
+        }
+        guard let lvl = bat.level_percent, lvl < 100 else { chargeEta = nil; return }
+        let now = Date()
+        if let last = chargeSamples.last, lvl < last.level { chargeSamples.removeAll() }  // reset on discharge
+        if chargeSamples.isEmpty || chargeSamples.last?.level != lvl {
+            chargeSamples.append((now, lvl))
+        }
+        chargeSamples.removeAll { now.timeIntervalSince($0.at) > 45 * 60 }   // ~45-min window
+        if let mins = estimatedMinutesToFull(currentLevel: lvl) {
+            chargeEta = now.addingTimeInterval(mins * 60)
+            chargeEtaEstimated = true
+        } else {
+            chargeEta = nil   // not enough data yet — countdown appears once SoC ticks up
+        }
+    }
+
+    private func estimatedMinutesToFull(currentLevel lvl: Int) -> Double? {
+        guard let first = chargeSamples.first, let last = chargeSamples.last else { return nil }
+        let dLevel = Double(last.level - first.level)
+        let dMin = last.at.timeIntervalSince(first.at) / 60
+        guard dLevel >= 1, dMin >= 0.5 else { return nil }   // need a measurable rate
+        let rate = dLevel / dMin                              // % per minute
+        return rate > 0 ? Double(100 - lvl) / rate : nil
+    }
+
     // menu bar title — shows a live countdown while charging
     var menuTitle: String {
         guard serverUp, let b = battery, let lvl = b.level_percent else { return "—" }
         if (b.is_charging ?? false), let eta = chargeEta {
-            return "⚡︎\(lvl)% · \(fmtCountdown(eta.timeIntervalSinceNow))"
+            let tilde = chargeEtaEstimated ? "~" : ""
+            return "⚡︎\(lvl)% · \(tilde)\(fmtCountdown(eta.timeIntervalSinceNow))"
         }
         let bolt = (b.is_charging ?? false) ? "⚡︎" : ""
         return "\(bolt)\(lvl)%"
@@ -415,10 +449,11 @@ enum Notifier {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = .default
+        content.sound = UNNotificationSound(named: UNNotificationSoundName("bikebell.aiff"))
         let req = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(req)
     }
+
 }
 
 // MARK: - Popover UI
@@ -456,7 +491,9 @@ struct DetailView: View {
                         Text("\(b.level_percent ?? 0)%").font(.title2).bold()
                         Text(statusLine(b)).font(.caption).foregroundStyle(.secondary)
                         if (b.is_charging ?? false), let eta = store.chargeEta {
-                            Text("~\(fmtCountdown(eta.timeIntervalSinceNow)) to full")
+                            let tilde = store.chargeEtaEstimated ? "~" : ""
+                            let note = store.chargeEtaEstimated ? " (est.)" : ""
+                            Text("\(tilde)\(fmtCountdown(eta.timeIntervalSinceNow)) to full\(note)")
                                 .font(.caption).foregroundStyle(.green)
                         }
                     }
