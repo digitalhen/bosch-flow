@@ -53,9 +53,9 @@ WEBHOOK_TIMEOUT = 10
 WEBHOOK_RETRIES = 3
 
 # --- Local desktop notifications (macOS) ------------------------------------
-# Off by default now: the "Bosch Flow" menu bar app posts native notifications
+# Off by default now: the "Bosch Bar" menu bar app posts native notifications
 # by reading /api/events. Set True to also fire terminal-notifier from the server.
 NOTIFY_ENABLED = False
 # Attribute notifications to a real app so they render fully native. Point this
-# at a dedicated "Bosch Flow" app bundle id once one exists; Terminal until then.
+# at a dedicated "Bosch Bar" app bundle id once one exists; Terminal until then.
 NOTIFY_SENDER = "com.apple.Terminal"

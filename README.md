@@ -1,13 +1,23 @@
-# bosch-flow
+# bosch-bar
 
-Get your **Bosch eBike Flow** data (Tern GSD and any Bosch Smart System bike with
-a ConnectModule) out of Bosch's cloud and into:
+**Bosch Bar** puts your **Bosch eBike Flow** data (Tern GSD and any Bosch Smart
+System bike with a ConnectModule) in your Mac's menu bar:
 
-- a **CLI** for quick pulls,
-- a **local REST API** that normalizes Bosch's messy multi-host cloud,
-- a **web dashboard** (battery, per-mode efficiency, ride map, GPX export),
-- **event webhooks** (battery full/low, charging, ride completed, firmware…),
-- a native **macOS menu bar app** with live status and desktop notifications.
+- a native **macOS menu bar app** — live battery %, charge countdown, ride alerts,
+  one-click sign-in, and auto-updates,
+- a **web dashboard** — battery, per-mode efficiency, bike health, firmware, and a
+  metric-colored ride map with GPX export,
+- plus, for tinkerers: a **local REST API**, a zero-dependency **CLI**, and
+  **event webhooks** (battery full/low, charging, ride completed, firmware…).
+
+<p align="center">
+  <img src="docs/dashboard.png" width="820"
+    alt="Bosch Bar web dashboard: battery, per-mode efficiency, bike health, firmware inventory, and a metric-colored ride map with history">
+</p>
+
+> ℹ️ **Same data as the Bosch app.** "Bosch Bar" shows the exact battery, range and
+> ride info you see in Bosch's **eBike Flow** app — just in your Mac's menu bar. (The
+> app was renamed from "Bosch Flow" so it isn't confused with Bosch's own Flow app.)
 
 > ⚠️ **Unofficial.** This talks to Bosch's private eBike Flow API using the mobile
 > app's OAuth client (reverse-engineered). It is not endorsed by Bosch, may break
@@ -16,11 +26,30 @@ a ConnectModule) out of Bosch's cloud and into:
 
 ---
 
-## Contents
+## Install (macOS)
+
+**That's all most people need — download, open, sign in.**
+
+1. **[Download the latest release »](https://github.com/digitalhen/bosch-bar/releases/latest)**
+   and unzip `Bosch-Bar-*.zip`.
+2. Drag **`Bosch Bar.app`** into your **Applications** folder and open it.
+3. It appears in your **menu bar** (🚲 + battery %). Click it → **Sign in…**, log in
+   with your **eBike Flow** account in the browser that opens — done.
+
+No Python, no terminal, no copying tokens. The app is **Developer ID-signed and
+notarized** (opens without warnings) and **auto-updates itself**. On first launch,
+click **Allow** when macOS asks about notifications so you get battery and ride alerts.
+
+> Everything below is for **developers / power users** — the CLI, the REST API,
+> webhooks, and running the server yourself. If you just want the app, you're done. 🚲
+
+---
+
+## Contents (developers)
 
 1. [Requirements](#requirements)
 2. [Setup](#1-setup)
-3. [**Get a token (authenticate with Bosch)**](#2-get-a-token-authenticate-with-bosch) ← start here
+3. [Get a token (authenticate with Bosch)](#2-get-a-token-authenticate-with-bosch)
 4. [Run the API + dashboard](#3-run-the-api--dashboard)
 5. [Menu bar app (macOS)](#4-menu-bar-app-macos)
 6. [Events & webhooks](#5-events--webhooks)
@@ -163,17 +192,24 @@ A native menu bar app that shows live battery % and posts **native desktop
 notifications** on events (this is the reliable way to get banners — a proper app
 gets its own notification permission).
 
+<p align="center">
+  <img src="docs/menubar.png" width="300"
+    alt="Bosch Bar menu bar popover: battery, per-mode ranges, odometer, latest ride, sign-in status, launch-at-login and Check for Updates">
+</p>
+
 **It's self-contained — no separate server, no Python needed.** The app *embeds*
 the whole backend (section 3) as a frozen binary, launches it on startup, and
 shuts it down on quit. You can still `curl http://127.0.0.1:8099` or open the
 dashboard while the app is running; it's the same REST API, just supervised for
-you. Its token/state files live in `~/Library/Application Support/Bosch Flow/`
+you. Its token/state files live in `~/Library/Application Support/Bosch Bar/`
 (with a `backend.log` there if you need to debug).
 
-**Prebuilt:** a signed build is committed at **`menubar/dist/Bosch-Flow-1.0.zip`** —
-just unzip and drag to `/Applications` (no Xcode needed). The release is signed with
-a **Developer ID** and **notarized** by Apple, so it opens without warnings. If you
-ever build/sign it yourself and macOS flags it, right-click → **Open** once.
+**Prebuilt:** grab the latest signed build from
+**[GitHub Releases](https://github.com/digitalhen/bosch-bar/releases/latest)** —
+unzip and drag to `/Applications` (no Xcode needed). It's **Developer ID**-signed and
+**notarized** by Apple, so it opens without warnings, and **auto-updates itself** via
+Sparkle from then on. If you build/sign it yourself and macOS flags it, right-click →
+**Open** once.
 
 Maintainers: **`menubar/notarize.sh`** does the full Developer-ID sign → notarize →
 staple → package flow (needs a `notarytool` keychain profile and an in-effect Apple
@@ -186,10 +222,10 @@ CPython needs under the hardened runtime.
 cd menubar
 ../.venv/bin/pip install -r ../requirements-build.txt   # once: PyInstaller
 ./build.sh                 # compiles Swift + freezes the backend into the .app
-open "Bosch Flow.app"
+open "Bosch Bar.app"
 ```
 
-On first launch macOS asks **"Bosch Flow" would like to send notifications** —
+On first launch macOS asks **"Bosch Bar" would like to send notifications** —
 click **Allow** (this is what makes banners work).
 
 - Menu bar shows `🚲 100%` (⚡ when charging).
@@ -369,7 +405,7 @@ app/
   main.py               Starlette routes + serves the dashboard
 web/index.html          the dashboard (Leaflet map + cards)
 menubar/
-  BoschFlow.swift       menu bar app: supervises backend + login + notifications
+  BoschBar.swift        menu bar app: supervises backend + login + notifications
   makeicon.swift        app-icon generator
   build.sh              compile Swift + freeze backend + bundle + sign the .app
   notarize.sh           Developer-ID sign (inside-out) + notarize + staple

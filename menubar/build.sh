@@ -1,11 +1,11 @@
 #!/bin/bash
-# Build "Bosch Flow.app" — a menu bar app that embeds and supervises the Python
+# Build "Bosch Bar.app" — a menu bar app that embeds and supervises the Python
 # backend (frozen with PyInstaller), posts native notifications, and handles the
-# onebikeapp-ios:// login redirect for in-app token setup.
+# onebikeapp-ios:// login redirect for in-app sign-in.
 set -e
 cd "$(dirname "$0")"
 ROOT="$(cd .. && pwd)"
-APP="Bosch Flow.app"
+APP="Bosch Bar.app"
 PYI="$ROOT/.venv/bin/pyinstaller"
 rm -rf "$APP" build
 mkdir -p build "$APP/Contents/MacOS"
@@ -23,7 +23,7 @@ if [ ! -f build/AppIcon.icns ]; then
 fi
 
 echo "compiling…"
-swiftc -O -o "build/BoschFlow" BoschFlow.swift \
+swiftc -O -o "build/BoschBar" BoschBar.swift \
   -framework AppKit -framework SwiftUI -framework Combine \
   -framework UserNotifications -framework ServiceManagement \
   -F vendor -framework Sparkle \
@@ -48,7 +48,7 @@ BK_DIST="$ROOT/menubar/build/backend_dist"
     --hidden-import starlette \
     serve.py >/dev/null )
 
-cp build/BoschFlow "$APP/Contents/MacOS/BoschFlow"
+cp build/BoschBar "$APP/Contents/MacOS/BoschBar"
 mkdir -p "$APP/Contents/Resources/backend"
 # copy the frozen onedir contents so the executable lands at Resources/backend/boschflowd
 cp -R "$BK_DIST/boschflowd/." "$APP/Contents/Resources/backend/"
@@ -70,9 +70,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleName</key><string>Bosch Flow</string>
-	<key>CFBundleDisplayName</key><string>Bosch Flow</string>
-	<key>CFBundleExecutable</key><string>BoschFlow</string>
+	<key>CFBundleName</key><string>Bosch Bar</string>
+	<key>CFBundleDisplayName</key><string>Bosch Bar</string>
+	<key>CFBundleExecutable</key><string>BoschBar</string>
+	<!-- bundle id kept as com.boschflow.menubar so existing installs auto-update across the rename -->
 	<key>CFBundleIdentifier</key><string>com.boschflow.menubar</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
 	<key>CFBundleShortVersionString</key><string>1.0</string>
@@ -83,7 +84,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>LSUIElement</key><true/>
 	<key>NSAppTransportSecurity</key>
 	<dict><key>NSAllowsArbitraryLoads</key><true/></dict>
-	<key>SUFeedURL</key><string>https://github.com/digitalhen/bosch-flow/releases/latest/download/appcast.xml</string>
+	<key>SUFeedURL</key><string>https://github.com/digitalhen/bosch-bar/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key><string>kfnnicvmSp/Ya4BsHnp66K6DQtmAaGppupoFE/d71gU=</string>
 	<key>SUEnableAutomaticChecks</key><true/>
 	<key>SUAutomaticallyUpdate</key><false/>

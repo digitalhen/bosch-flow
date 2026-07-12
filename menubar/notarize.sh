@@ -1,5 +1,5 @@
 #!/bin/bash
-# Developer-ID sign + notarize + staple "Bosch Flow.app" for warning-free
+# Developer-ID sign + notarize + staple "Bosch Bar.app" for warning-free
 # distribution. Produces dist/Bosch-Flow-1.0.zip (committed to the repo).
 #
 # The app now embeds a PyInstaller-frozen Python backend, so signing is done
@@ -16,7 +16,7 @@
 # Developer Program License Agreement (accept updates at developer.apple.com).
 set -e
 cd "$(dirname "$0")"
-APP="Bosch Flow.app"
+APP="Bosch Bar.app"
 ID="${SIGN_ID:-Developer ID Application: Henry Williams (GBGWWD9Z22)}"
 PROFILE="${NOTARY_PROFILE:-bosch-flow}"
 BACKEND="$APP/Contents/Resources/backend"
@@ -76,7 +76,7 @@ echo "› staple + package"
 xcrun stapler staple "$APP"
 rm -f dist/_notarize.zip
 VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
-ZIP="dist/Bosch-Flow-${VER}.zip"
+ZIP="dist/Bosch-Bar-${VER}.zip"
 ditto -c -k --keepParent "$APP" "$ZIP"
 
 echo "› verify"
