@@ -8,10 +8,10 @@ import Sparkle
 // MARK: - Config
 let apiPort = 8099
 let apiBase = "http://127.0.0.1:\(apiPort)"
-let notifiableEvents: Set<String> = [
-    "battery.full", "battery.low", "battery.charging_started",
-    "battery.charging_stopped", "charger.connected", "charger.disconnected",
-    "ride.completed", "firmware.changed",
+// Notify on every event EXCEPT internal plumbing (these would just be noise:
+// per-delivery webhook logs and the poller's own error/crash bookkeeping).
+let silentEvents: Set<String> = [
+    "webhook.delivery", "poll.error", "poll.crash",
 ]
 
 // MARK: - Embedded backend
@@ -356,7 +356,7 @@ final class BikeStore: ObservableObject {
             baselined = true
             return
         }
-        let fresh = events.filter { $0.1 > lastEventSeen && notifiableEvents.contains($0.0) }
+        let fresh = events.filter { $0.1 > lastEventSeen && !silentEvents.contains($0.0) }
         for (ev, _, data) in fresh.reversed() {   // oldest first
             Notifier.post(for: ev, data: data, bike: bikeName)
         }
@@ -401,7 +401,12 @@ enum Notifier {
             let comp = data["component"] as? String ?? "component"
             let to = data["to"] as? String ?? ""
             return ("🔧 \(comp) updated", "→ \(to)", "default")
-        default: return nil
+        default:
+            // Any other (e.g. newly added) event still notifies — humanize the type.
+            let name = ev.replacingOccurrences(of: "_", with: " ")
+                .replacingOccurrences(of: ".", with: " · ")
+            let body = lvl >= 0 ? "\(bike) at \(lvl)%" : bike
+            return ("🔔 \(name)", body, "default")
         }
     }
 
