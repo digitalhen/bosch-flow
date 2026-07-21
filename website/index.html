@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bosch Bar — Bosch eBike Flow for your Mac menu bar</title>
+  <meta name="description" content="Live battery, range, charge countdown and ride alerts from your Bosch eBike Flow account — right in your Mac's menu bar.">
+  <link rel="icon" href="icon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+      background: #0a0f0c;
+      color: #e6ece8;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* faint road-dash grid + a green glow behind the hero — the bike equivalent of a starfield */
+    .backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(900px 420px at 50% -80px, rgba(52,208,88,0.10), transparent 70%),
+        repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 46px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 80px 24px 60px;
+      text-align: center;
+    }
+
+    .icon {
+      width: 128px;
+      height: 128px;
+      border-radius: 28px;
+      margin-bottom: 32px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    h1 {
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      font-size: 20px;
+      color: #8b9a91;
+      margin-bottom: 40px;
+      line-height: 1.5;
+    }
+
+    .download-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 36px;
+      background: linear-gradient(135deg, #2ea043, #1a7f37);
+      color: white;
+      text-decoration: none;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: 600;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px rgba(46,160,67,0.3);
+    }
+
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(46,160,67,0.45);
+    }
+
+    .download-btn-alt {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: none;
+      color: #cfd8d2;
+    }
+
+    .download-btn-alt:hover {
+      background: rgba(255,255,255,0.1);
+      box-shadow: none;
+    }
+
+    .meta-row {
+      display: flex;
+      gap: 40px;
+      justify-content: center;
+      margin-top: 12px;
+      text-align: center;
+      flex-wrap: wrap;
+    }
+
+    .meta {
+      font-size: 13px;
+      color: #5c6a62;
+    }
+
+    .features {
+      margin-top: 64px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      text-align: left;
+    }
+
+    .feature {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 20px;
+    }
+
+    .feature h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #d2dcd6;
+    }
+
+    .feature p {
+      font-size: 13px;
+      color: #7c8a82;
+      line-height: 1.5;
+    }
+
+    .bike-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 48px;
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 100px;
+      font-size: 14px;
+      color: #a2b0a8;
+    }
+
+    .bike-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34d058;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .screenshots {
+      margin-top: 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .hero-img {
+      max-width: 100%;
+      border-radius: 14px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .shot-caption {
+      font-size: 12px;
+      color: #5c6a62;
+      margin-top: -14px;
+    }
+
+    .install-cmd {
+      display: block;
+      margin: 8px auto 0;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      color: #a2b0a8;
+      cursor: pointer;
+      max-width: 520px;
+      word-break: break-all;
+    }
+
+    .install-cmd:hover {
+      background: rgba(255,255,255,0.09);
+      color: #c4d0c8;
+    }
+
+    .footer {
+      margin-top: 64px;
+      font-size: 13px;
+      color: #48544d;
+      line-height: 1.7;
+    }
+
+    .footer a {
+      color: #5f8a6e;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    .disclaimer {
+      margin-top: 40px;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      font-size: 12px;
+      color: #6e7c74;
+      line-height: 1.6;
+      text-align: left;
+    }
+
+    .coffee-btn {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: #1a1a1a;
+      background: #ffdd00;
+      border: 1px solid rgba(255,221,0,0.6);
+      box-shadow: 0 0 12px rgba(255,221,0,0.15);
+      padding: 6px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+    }
+
+    .coffee-btn:hover { text-decoration: none; }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 36px; }
+      .tagline { font-size: 17px; }
+      .features { grid-template-columns: 1fr; }
+      .container { padding: 48px 20px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <a href="https://buymeacoffee.com/digitalhen" target="_blank" rel="noopener noreferrer" class="coffee-btn">☕ Buy me a coffee</a>
+  <div class="backdrop"></div>
+  <div class="container">
+    <img src="icon.png" alt="Bosch Bar" class="icon">
+    <h1>Bosch Bar</h1>
+    <p class="tagline">Your eBike's battery, range and rides — live in your Mac's menu bar.</p>
+
+    <div class="download-buttons">
+      <a href="https://github.com/digitalhen/bosch-bar/releases/latest" class="download-btn">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        Download for macOS
+      </a>
+      <a href="https://github.com/digitalhen/bosch-bar" class="download-btn download-btn-alt">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+    <div class="meta-row">
+      <p class="meta">macOS 13+ &middot; Universal &middot; 13 MB</p>
+      <p class="meta">Notarized &middot; Auto-updating &middot; Free</p>
+    </div>
+
+    <p class="meta" style="margin-top: 16px; color: #6e7c74;">or grab the source and run it yourself:</p>
+    <code class="install-cmd" onclick="navigator.clipboard.writeText('git clone https://github.com/digitalhen/bosch-bar.git');this.textContent='Copied!';setTimeout(()=>this.textContent='git clone https://github.com/digitalhen/bosch-bar.git',1500)">git clone https://github.com/digitalhen/bosch-bar.git</code>
+
+    <div class="screenshots">
+      <img src="hero.png" alt="Bosch Bar — battery, range per mode and latest ride in the macOS menu bar" class="hero-img" style="max-width: 340px;">
+      <img src="dashboard.png" alt="Bosch Bar web dashboard — battery, per-mode efficiency, bike health, firmware and a metric-colored ride map" class="hero-img">
+      <p class="shot-caption">The bundled web dashboard — efficiency, bike health, firmware and ride maps.</p>
+    </div>
+
+    <div class="bike-badge">
+      <span class="dot"></span>
+      Works with Tern GSD &amp; Bosch Smart System bikes
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <h3>Live Battery &amp; Range</h3>
+        <p>Charge level in your menu bar, range per assist mode, and a countdown to full while charging.</p>
+      </div>
+      <div class="feature">
+        <h3>Ride &amp; Battery Alerts</h3>
+        <p>Native notifications for battery full or low, charging started or stopped, and completed rides.</p>
+      </div>
+      <div class="feature">
+        <h3>Web Dashboard</h3>
+        <p>Per-mode efficiency, bike health, firmware inventory and a metric-colored ride map with GPX export.</p>
+      </div>
+      <div class="feature">
+        <h3>API &amp; Webhooks</h3>
+        <p>A local REST API, a zero-dependency CLI and event webhooks — for wiring your bike into anything else.</p>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      <strong style="color:#8d9c93">Unofficial.</strong> Bosch Bar is an independent project and is not affiliated with,
+      endorsed by, or supported by Robert Bosch GmbH. It signs in to your own eBike Flow account and shows the
+      same data the official app does. Bosch and eBike Flow are trademarks of their respective owners.
+    </div>
+
+    <div class="footer">
+      Built by <a href="https://cleartextlabs.com">Cleartext Labs</a><br>
+      <a href="https://github.com/digitalhen/bosch-bar">Source &amp; docs on GitHub</a>
+    </div>
+  </div>
+</body>
+</html>
