@@ -87,7 +87,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>LSUIElement</key><true/>
 	<key>NSAppTransportSecurity</key>
 	<dict><key>NSAllowsArbitraryLoads</key><true/></dict>
-	<key>SUFeedURL</key><string>https://github.com/digitalhen/bosch-bar/releases/latest/download/appcast.xml</string>
+	<key>SUFeedURL</key><string>https://github.com/digitalhen/bike-bar/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key><string>kfnnicvmSp/Ya4BsHnp66K6DQtmAaGppupoFE/d71gU=</string>
 	<key>SUEnableAutomaticChecks</key><true/>
 	<key>SUAutomaticallyUpdate</key><false/>

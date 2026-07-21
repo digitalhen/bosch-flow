@@ -7,7 +7,7 @@
 # we ask the API for the newest release's zip asset instead.
 set -e
 
-REPO="digitalhen/bosch-bar"
+REPO="digitalhen/bike-bar"
 APP="/Applications/Bosch Bar.app"
 
 echo "Installing Bosch Bar..."

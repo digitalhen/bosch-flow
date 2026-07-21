@@ -1,6 +1,6 @@
-# bosch-bar
+# bike-bar
 
-**Bosch Bar** puts your **Bosch eBike Flow** data (Tern GSD and any Bosch Smart
+**Bike Bar** puts your **Bosch eBike Flow** data (Tern GSD and any Bosch Smart
 System bike with a ConnectModule) in your Mac's menu bar:
 
 - a native **macOS menu bar app** — live battery %, charge countdown, ride alerts,
@@ -12,12 +12,14 @@ System bike with a ConnectModule) in your Mac's menu bar:
 
 <p align="center">
   <img src="docs/dashboard.png" width="820"
-    alt="Bosch Bar web dashboard: battery, per-mode efficiency, bike health, firmware inventory, and a metric-colored ride map with history">
+    alt="Bike Bar web dashboard: battery, per-mode efficiency, bike health, firmware inventory, and a metric-colored ride map with history">
 </p>
 
-> ℹ️ **Same data as the Bosch app.** "Bosch Bar" shows the exact battery, range and
-> ride info you see in Bosch's **eBike Flow** app — just in your Mac's menu bar. (The
-> app was renamed from "Bosch Flow" so it isn't confused with Bosch's own Flow app.)
+> ℹ️ **Same data as the Bosch app.** "Bike Bar" shows the exact battery, range and
+> ride info you see in Bosch's **eBike Flow** app — just in your Mac's menu bar. (Named
+> "Bosch Flow", then "Bosch Bar", now **Bike Bar** — far enough from Bosch's own Flow
+> app to avoid confusion. The bundle on disk is still `Bosch Bar.app` and the bundle id
+> is still `com.boschflow.menubar`, so auto-updates keep working across the renames.)
 
 > ⚠️ **Unofficial.** This talks to Bosch's private eBike Flow API using the mobile
 > app's OAuth client (reverse-engineered). It is not endorsed by Bosch, may break
@@ -30,9 +32,10 @@ System bike with a ConnectModule) in your Mac's menu bar:
 
 **That's all most people need — download, open, sign in.**
 
-1. **[Download the latest release »](https://github.com/digitalhen/bosch-bar/releases/latest)**
+1. **[Download the latest release »](https://github.com/digitalhen/bike-bar/releases/latest)**
    and unzip `Bosch-Bar-*.zip`.
-2. Drag **`Bosch Bar.app`** into your **Applications** folder and open it.
+2. Drag **`Bosch Bar.app`** into your **Applications** folder and open it — it shows
+   up everywhere as **Bike Bar**.
 3. It appears in your **menu bar** (🚲 + battery %). Click it → **Sign in…**, log in
    with your **eBike Flow** account in the browser that opens — done.
 
@@ -194,7 +197,7 @@ gets its own notification permission).
 
 <p align="center">
   <img src="docs/menubar.png" width="300"
-    alt="Bosch Bar menu bar popover: battery, per-mode ranges, odometer, latest ride, sign-in status, launch-at-login and Check for Updates">
+    alt="Bike Bar menu bar popover: battery, per-mode ranges, odometer, latest ride, sign-in status, launch-at-login and Check for Updates">
 </p>
 
 **It's self-contained — no separate server, no Python needed.** The app *embeds*
@@ -205,7 +208,7 @@ you. Its token/state files live in `~/Library/Application Support/Bosch Bar/`
 (with a `backend.log` there if you need to debug).
 
 **Prebuilt:** grab the latest signed build from
-**[GitHub Releases](https://github.com/digitalhen/bosch-bar/releases/latest)** —
+**[GitHub Releases](https://github.com/digitalhen/bike-bar/releases/latest)** —
 unzip and drag to `/Applications` (no Xcode needed). It's **Developer ID**-signed and
 **notarized** by Apple, so it opens without warnings, and **auto-updates itself** via
 Sparkle from then on. If you build/sign it yourself and macOS flags it, right-click →
@@ -225,7 +228,7 @@ cd menubar
 open "Bosch Bar.app"
 ```
 
-On first launch macOS asks **"Bosch Bar" would like to send notifications** —
+On first launch macOS asks **"Bike Bar" would like to send notifications** —
 click **Allow** (this is what makes banners work).
 
 - Menu bar shows `🚲 100%` (⚡ when charging).

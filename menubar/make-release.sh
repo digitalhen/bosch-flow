@@ -7,7 +7,7 @@
 #
 # The build number MUST increase every release — Sparkle compares it (sparkle:version)
 # to decide whether an update is available. The app's SUFeedURL is
-# https://github.com/digitalhen/bosch-bar/releases/latest/download/appcast.xml,
+# https://github.com/digitalhen/bike-bar/releases/latest/download/appcast.xml,
 # so the newest release's appcast.xml is what installed apps read.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -16,7 +16,7 @@ VER="${1:-}"; BUILD="${2:-}"; NOTES="${3:-Bug fixes and improvements.}"
 if [ -z "$VER" ] || [ -z "$BUILD" ]; then
   echo "usage: ./make-release.sh <version> <build#> [\"notes\"]" >&2; exit 1
 fi
-REPO="digitalhen/bosch-bar"
+REPO="digitalhen/bike-bar"
 KEYFILE="$HOME/.appstoreconnect/private_keys/sparkle_ed25519.key"
 TAG="v${VER}-build${BUILD}"
 [ -f "$KEYFILE" ] || { echo "missing Sparkle key: $KEYFILE" >&2; exit 1; }
