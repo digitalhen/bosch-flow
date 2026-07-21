@@ -1,13 +1,14 @@
 #!/bin/bash
-# Build "Bosch Bar.app" — displayed as "Bike Bar"; the bundle keeps its original
-# filename and identifier so Sparkle updates land on top of existing installs.
+# Build "Bike Bar.app". The bundle IDENTIFIER stays com.boschflow.menubar across
+# the renames — notification permission, the login item and Sparkle's idea of
+# "this app" are all keyed to it, so changing it would orphan existing installs.
 # A menu bar app that embeds and supervises the Python
 # backend (frozen with PyInstaller), posts native notifications, and handles the
 # onebikeapp-ios:// login redirect for in-app sign-in.
 set -e
 cd "$(dirname "$0")"
 ROOT="$(cd .. && pwd)"
-APP="Bosch Bar.app"
+APP="Bike Bar.app"
 PYI="$ROOT/.venv/bin/pyinstaller"
 rm -rf "$APP" build
 mkdir -p build "$APP/Contents/MacOS"
@@ -76,7 +77,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>CFBundleName</key><string>Bike Bar</string>
 	<key>CFBundleDisplayName</key><string>Bike Bar</string>
 	<key>CFBundleExecutable</key><string>BoschBar</string>
-	<!-- bundle id kept as com.boschflow.menubar so existing installs auto-update across the rename -->
+	<!-- see header: identifier is pinned across renames -->
 	<key>CFBundleIdentifier</key><string>com.boschflow.menubar</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
 	<key>CFBundleShortVersionString</key><string>1.0</string>

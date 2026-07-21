@@ -24,7 +24,7 @@ TAG="v${VER}-build${BUILD}"
 echo "== 1/4 build + notarize $VER (build $BUILD) =="
 APP_VERSION="$VER" APP_BUILD="$BUILD" ./notarize.sh
 
-ZIP="dist/Bosch-Bar-${VER}.zip"
+ZIP="dist/Bike-Bar-${VER}.zip"
 [ -f "$ZIP" ] || { echo "notarize.sh did not produce $ZIP" >&2; exit 1; }
 
 # Every release also ships an identical, UNversioned copy. Its filename never
@@ -40,7 +40,7 @@ read -r SIG LEN < <(swift sparkle_sign.swift "$ZIP" "$KEYFILE")
 echo "   sig=${SIG:0:16}… length=$LEN"
 
 echo "== 3/4 write appcast.xml =="
-URL="https://github.com/${REPO}/releases/download/${TAG}/Bosch-Bar-${VER}.zip"
+URL="https://github.com/${REPO}/releases/download/${TAG}/Bike-Bar-${VER}.zip"
 PUBDATE="$(LC_ALL=C date '+%a, %d %b %Y %H:%M:%S %z')"
 cat > dist/appcast.xml <<XML
 <?xml version="1.0" encoding="utf-8"?>

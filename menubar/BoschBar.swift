@@ -22,16 +22,21 @@ let silentEvents: Set<String> = [
 final class BackendController {
     private var process: Process?
 
-    /// ~/Library/Application Support/Bosch Bar — a writable home for tokens,
-    /// event log, poller state (the .app bundle itself is read-only). Migrates the
-    /// pre-rename "Bosch Flow" folder once, so a signed-in user stays signed in.
+    /// ~/Library/Application Support/Bike Bar — a writable home for tokens,
+    /// event log, poller state (the .app bundle itself is read-only). Migrates a
+    /// folder from either earlier name, so a signed-in user stays signed in.
     static var dataDir: URL {
         let fm = FileManager.default
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = base.appendingPathComponent("Bosch Bar", isDirectory: true)
+        let dir = base.appendingPathComponent("Bike Bar", isDirectory: true)
         if !fm.fileExists(atPath: dir.path) {
-            let legacy = base.appendingPathComponent("Bosch Flow", isDirectory: true)
-            if fm.fileExists(atPath: legacy.path) { try? fm.moveItem(at: legacy, to: dir) }
+            for name in ["Bosch Bar", "Bosch Flow"] {   // newest legacy name first
+                let legacy = base.appendingPathComponent(name, isDirectory: true)
+                if fm.fileExists(atPath: legacy.path) {
+                    try? fm.moveItem(at: legacy, to: dir)
+                    break
+                }
+            }
         }
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir

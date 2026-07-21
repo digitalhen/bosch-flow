@@ -1,6 +1,6 @@
 #!/bin/bash
-# Developer-ID sign + notarize + staple "Bosch Bar.app" for warning-free
-# distribution. Produces dist/Bosch-Flow-1.0.zip (committed to the repo).
+# Developer-ID sign + notarize + staple "Bike Bar.app" for warning-free
+# distribution. Produces dist/Bike-Bar-<ver>.zip (committed to the repo).
 #
 # The app now embeds a PyInstaller-frozen Python backend, so signing is done
 # inside-out: every nested Mach-O (CPython + dylibs + the boschflowd launcher)
@@ -16,7 +16,7 @@
 # Developer Program License Agreement (accept updates at developer.apple.com).
 set -e
 cd "$(dirname "$0")"
-APP="Bosch Bar.app"
+APP="Bike Bar.app"
 ID="${SIGN_ID:-Developer ID Application: Henry Williams (GBGWWD9Z22)}"
 PROFILE="${NOTARY_PROFILE:-bosch-flow}"
 BACKEND="$APP/Contents/Resources/backend"
@@ -76,7 +76,7 @@ echo "› staple + package"
 xcrun stapler staple "$APP"
 rm -f dist/_notarize.zip
 VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
-ZIP="dist/Bosch-Bar-${VER}.zip"
+ZIP="dist/Bike-Bar-${VER}.zip"
 ditto -c -k --keepParent "$APP" "$ZIP"
 
 echo "› verify"

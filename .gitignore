@@ -12,7 +12,7 @@ __pycache__/
 
 # macOS menu bar app build artifacts
 menubar/build/
-menubar/Bosch Bar.app/
+menubar/Bike Bar.app/
 # generated per release (published to GitHub Releases, not committed)
 menubar/dist/appcast.xml
 menubar/dist/_notarize.zip
