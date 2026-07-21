@@ -27,6 +27,14 @@ APP_VERSION="$VER" APP_BUILD="$BUILD" ./notarize.sh
 ZIP="dist/Bosch-Bar-${VER}.zip"
 [ -f "$ZIP" ] || { echo "notarize.sh did not produce $ZIP" >&2; exit 1; }
 
+# Every release also ships an identical, UNversioned copy. Its filename never
+# changes, which is the only way to have a permanent download link:
+#   https://github.com/<repo>/releases/latest/download/Bike-Bar.zip
+# The website button and install.sh both point at that. The appcast keeps using
+# the versioned URL below — it is pinned per release and must stay immutable.
+STABLE="dist/Bike-Bar.zip"
+cp "$ZIP" "$STABLE"
+
 echo "== 2/4 EdDSA-sign the update =="
 read -r SIG LEN < <(swift sparkle_sign.swift "$ZIP" "$KEYFILE")
 echo "   sig=${SIG:0:16}… length=$LEN"
@@ -38,7 +46,7 @@ cat > dist/appcast.xml <<XML
 <?xml version="1.0" encoding="utf-8"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
-    <title>Bosch Bar</title>
+    <title>Bike Bar</title>
     <item>
       <title>Version ${VER}</title>
       <description><![CDATA[${NOTES}]]></description>
@@ -54,7 +62,7 @@ cat > dist/appcast.xml <<XML
 XML
 
 echo "== 4/4 publish GitHub release ${TAG} =="
-gh release create "$TAG" "$ZIP" dist/appcast.xml \
-  --repo "$REPO" --title "Bosch Bar ${VER}" --notes "$NOTES"
+gh release create "$TAG" "$ZIP" "$STABLE" dist/appcast.xml \
+  --repo "$REPO" --title "Bike Bar ${VER}" --notes "$NOTES"
 
 echo "done — ${TAG} published; installed apps will see it via the appcast."
