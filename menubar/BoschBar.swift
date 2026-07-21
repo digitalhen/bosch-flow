@@ -141,7 +141,7 @@ struct Ride: Decodable {
 // MARK: - Store
 @MainActor
 final class BikeStore: ObservableObject {
-    @Published var bikeName = "Bosch Bar"
+    @Published var bikeName = "Bike Bar"
     @Published var battery: Battery?
     @Published var rides: [Ride] = []
     @Published var serverUp = false

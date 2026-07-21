@@ -1,5 +1,7 @@
 #!/bin/bash
-# Build "Bosch Bar.app" — a menu bar app that embeds and supervises the Python
+# Build "Bosch Bar.app" — displayed as "Bike Bar"; the bundle keeps its original
+# filename and identifier so Sparkle updates land on top of existing installs.
+# A menu bar app that embeds and supervises the Python
 # backend (frozen with PyInstaller), posts native notifications, and handles the
 # onebikeapp-ios:// login redirect for in-app sign-in.
 set -e
@@ -71,8 +73,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleName</key><string>Bosch Bar</string>
-	<key>CFBundleDisplayName</key><string>Bosch Bar</string>
+	<key>CFBundleName</key><string>Bike Bar</string>
+	<key>CFBundleDisplayName</key><string>Bike Bar</string>
 	<key>CFBundleExecutable</key><string>BoschBar</string>
 	<!-- bundle id kept as com.boschflow.menubar so existing installs auto-update across the rename -->
 	<key>CFBundleIdentifier</key><string>com.boschflow.menubar</string>

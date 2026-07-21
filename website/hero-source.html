@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:900px; height:512px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    background:
+      radial-gradient(700px 340px at 50% 0px, rgba(52,208,88,0.10), transparent 70%),
+      repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 46px),
+      #0a0f0c;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ---- menu bar strip ---- */
+  /* the bike item is anchored dead-centre so the popover arrow lands under it;
+     neighbours fan out either side the way a real menu bar does */
+  .menubar {
+    position:absolute; top:38px; left:0; right:0; height:30px;
+    font-size:13px; color:#e6ece8;
+  }
+  .mb-left, .mb-right {
+    position:absolute; top:0; height:30px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .mb-left  { right:calc(50% + 46px); }
+  .mb-right { left:calc(50% + 46px); }
+  .mb-active { position:absolute; top:0; left:50%; transform:translateX(-50%); }
+  .mb-pill {
+    height:30px; border-radius:7px; background:rgba(255,255,255,0.05);
+  }
+  .mb-item {
+    display:flex; align-items:center; gap:6px;
+    padding:0 12px; height:30px; border-radius:7px;
+    font-variant-numeric: tabular-nums;
+  }
+  .mb-active { background:rgba(255,255,255,0.13); }
+  .mb-dim { color:#8b9a91; font-size:11px; letter-spacing:0.02em; }
+
+  /* ---- popover ---- */
+  .pop {
+    position:absolute; top:86px; left:50%; transform:translateX(-50%);
+    width:326px; padding:14px;
+    background:#2f3134;
+    border:0.5px solid rgba(255,255,255,0.09);
+    border-radius:12px;
+    box-shadow: 0 22px 60px rgba(0,0,0,0.62), 0 2px 6px rgba(0,0,0,0.4);
+    color:#e9ecea;
+  }
+  .arrow {
+    position:absolute; top:-7px; left:50%; transform:translateX(-50%) rotate(45deg);
+    width:14px; height:14px; background:#2f3134;
+    border-left:0.5px solid rgba(255,255,255,0.09);
+    border-top:0.5px solid rgba(255,255,255,0.09);
+    border-radius:2px;
+  }
+  .title { font-size:13px; font-weight:700; margin-bottom:12px; }
+  .row { display:flex; align-items:center; gap:10px; }
+  .pct { font-size:21px; font-weight:700; letter-spacing:-0.4px; line-height:1.1; }
+  .sub { font-size:11px; color:#9aa39d; margin-top:1px; }
+  .eta {
+    display:inline-block; margin-top:4px;
+    font-size:11px; font-weight:500; color:#59d96f;
+    background:rgba(89,217,111,0.14);
+    padding:2px 7px; border-radius:100px;
+  }
+
+  .modes { display:flex; gap:8px; margin-top:12px; }
+  .mode {
+    flex:1; text-align:center; padding:5px 0 4px;
+    background:rgba(255,255,255,0.075); border-radius:6px;
+  }
+  .mode b { display:block; font-size:13px; font-weight:600; }
+  .mode span { display:block; font-size:8px; color:#9aa39d; letter-spacing:0.06em; margin-top:1px; }
+
+  .line { display:flex; align-items:center; gap:6px; font-size:11px; margin-top:12px; color:#dfe4e1; }
+  hr { border:0; border-top:0.5px solid rgba(255,255,255,0.13); margin:12px 0; }
+  .label { font-size:11px; color:#9aa39d; margin-bottom:6px; }
+  .between { display:flex; align-items:center; justify-content:space-between; font-size:11px; }
+  .between b { font-weight:700; }
+
+  .btn {
+    display:inline-block; padding:4px 11px; font-size:11px;
+    background:rgba(255,255,255,0.11); border:0.5px solid rgba(255,255,255,0.09);
+    border-radius:6px; color:#e9ecea;
+  }
+  .btnrow { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .check {
+    width:13px; height:13px; border-radius:3px; background:#3d7fe8;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .foot { display:flex; gap:8px; margin-top:12px; }
+  svg { display:block; }
+</style>
+</head>
+<body>
+
+  <div class="menubar">
+    <div class="mb-left">
+      <div class="mb-pill" style="width:88px"></div>
+      <div class="mb-item mb-dim">
+        <svg width="13" height="13" viewBox="0 0 24 24"><path fill="#8b9a91" d="M12 6a1 1 0 100-2 1 1 0 000 2zm7 4a4 4 0 100 8 4 4 0 000-8zm0 1.5a2.5 2.5 0 110 5 2.5 2.5 0 010-5zM5 10a4 4 0 100 8 4 4 0 000-8zm0 1.5a2.5 2.5 0 110 5 2.5 2.5 0 010-5z"/></svg>
+        CPU 41°
+      </div>
+      <div class="mb-item mb-dim">↑ 2.1 ↓ 18</div>
+    </div>
+
+    <div class="mb-item mb-active">
+      <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#e6ece8" d="M18.5 9.5c-.42 0-.82.06-1.2.17L15.6 6.5h1.65V5.2h-3.1c-.24 0-.45.13-.56.34l-.63 1.16H8.9V5.5h2.35V4.2H5.6v1.3h2v1.2h-.85c-.3 0-.56.2-.63.49l-.4 1.5c-.2-.04-.4-.06-.62-.06a4.5 4.5 0 100 9 4.5 4.5 0 004.42-3.65h1.63c.26 0 .5-.15.6-.4l2.4-5.02.72 1.3A4.49 4.49 0 1018.5 9.5zm-13 7.7a3.2 3.2 0 01-.4-6.37l-.78 2.9a.65.65 0 00.63.82H8.1a3.2 3.2 0 01-2.6 2.65zm2.6-3.95H5.8l.62-2.3 1.68 2.3zm3-.65h-1.2L7.4 9.36l.6-1.36h4.86l-1.76 4.6zm5.4 4.6a3.2 3.2 0 01-1.05-6.22l1.2 2.2a.65.65 0 001.14-.62l-1.2-2.2a3.2 3.2 0 01-.09 6.84z"/></svg>
+      62%
+    </div>
+
+    <div class="mb-right">
+      <div class="mb-pill" style="width:64px"></div>
+      <div class="mb-pill" style="width:52px"></div>
+      <div class="mb-item mb-dim" style="margin-left:2px">Sun 20 Jul&nbsp; 21:58</div>
+    </div>
+  </div>
+
+  <div class="pop">
+    <div class="arrow"></div>
+
+    <div class="title">Tern Cargo Line</div>
+
+    <div class="row">
+      <!-- battery.100.bolt, accentGreen -->
+      <svg width="30" height="30" viewBox="0 0 28 20">
+        <rect x="1" y="3.4" width="21.4" height="13.2" rx="4" fill="none" stroke="#59d96f" stroke-width="1.4"/>
+        <path d="M24.3 8.4c1.1.5 1.1 2.7 0 3.2V8.4z" fill="#59d96f"/>
+        <rect x="3" y="5.4" width="17.4" height="9.2" rx="2.4" fill="#59d96f"/>
+        <path d="M13.1 4.9l-4.5 6.6h3.1l-1.2 4.6 4.8-7h-3.3z" fill="#2f3134"/>
+      </svg>
+      <div>
+        <div class="pct">62%</div>
+        <div class="sub">charging · live</div>
+        <div class="eta">1h 12m to full</div>
+      </div>
+    </div>
+
+    <div class="modes">
+      <div class="mode"><b>74</b><span>ECO</span></div>
+      <div class="mode"><b>45</b><span>TOUR</span></div>
+      <div class="mode"><b>53</b><span>AUTO</span></div>
+      <div class="mode"><b>36</b><span>CARGO</span></div>
+    </div>
+
+    <div class="line">
+      <svg width="12" height="12" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="none" stroke="#c9d0cb" stroke-width="1.6"/><path d="M12 7.6v5.2" stroke="#c9d0cb" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="16.4" r="1" fill="#c9d0cb"/></svg>
+      275.8 km odometer
+    </div>
+
+    <hr>
+    <div class="label">Latest ride</div>
+    <div class="between">
+      <span>Jul 20, 6:04 PM</span>
+      <span style="display:flex; align-items:center; gap:6px">
+        <b>27.7 km</b>
+        <svg width="10" height="10" viewBox="0 0 24 24"><path fill="#59d96f" d="M21 3L3 10.5l7.2 2.9L13.5 21 21 3z"/></svg>
+      </span>
+    </div>
+
+    <hr>
+    <div class="between" style="justify-content:flex-start; gap:8px">
+      <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#59d96f" d="M12 1.6l2.3 1.7 2.8-.4 1 2.7 2.5 1.4-.7 2.8.7 2.8-2.5 1.4-1 2.7-2.8-.4L12 18.4 9.7 16.7l-2.8.4-1-2.7-2.5-1.4.7-2.8-.7-2.8 2.5-1.4 1-2.7 2.8.4L12 1.6z"/><path fill="#2f3134" d="M10.9 13.2L8.2 10.5l1.2-1.2 1.5 1.5 3.7-3.7 1.2 1.2-4.9 4.9z"/></svg>
+      <span style="color:#9aa39d">Signed in · c5ecb152…</span>
+    </div>
+    <div class="btnrow"><span class="btn">Re-authenticate…</span></div>
+
+    <div class="btnrow">
+      <span class="check">
+        <svg width="9" height="9" viewBox="0 0 24 24"><path fill="#fff" d="M9.6 16.2L5.4 12l1.4-1.4 2.8 2.8 7-7L18 7.8z"/></svg>
+      </span>
+      <span style="font-size:11px">Launch at login</span>
+      <span style="flex:1"></span>
+      <span class="btn">Check for Updates…</span>
+    </div>
+
+    <hr>
+    <div class="foot">
+      <span class="btn">Dashboard</span>
+      <span class="btn">Refresh</span>
+      <span class="btn">km</span>
+      <span class="btn">Quit</span>
+    </div>
+  </div>
+
+</body>
+</html>
