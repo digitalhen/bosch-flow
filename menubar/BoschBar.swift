@@ -469,6 +469,14 @@ struct DetailView: View {
     private func rangeVal(_ km: Double) -> Int { Int((useImperial ? km*0.621371 : km).rounded()) }
     private var distUnit: String { useImperial ? "mi" : "km" }
 
+    /// System green is too light to read on the popover's grey material in light mode.
+    /// Darken it there, brighten it in dark mode.
+    private static let accentGreen = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.35, green: 0.85, blue: 0.45, alpha: 1)
+            : NSColor(srgbRed: 0.08, green: 0.44, blue: 0.18, alpha: 1)
+    })
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(store.bikeName).font(.headline)
@@ -486,7 +494,7 @@ struct DetailView: View {
             } else if let b = store.battery {
                 HStack(spacing: 10) {
                     Image(systemName: (b.is_charging ?? false) ? "battery.100.bolt" : "battery.100")
-                        .font(.title2).foregroundStyle(.green)
+                        .font(.title2).foregroundStyle(Self.accentGreen)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(b.level_percent ?? 0)%").font(.title2).bold()
                         Text(statusLine(b)).font(.caption).foregroundStyle(.secondary)
@@ -494,7 +502,10 @@ struct DetailView: View {
                             let tilde = store.chargeEtaEstimated ? "~" : ""
                             let note = store.chargeEtaEstimated ? " (est.)" : ""
                             Text("\(tilde)\(fmtCountdown(eta.timeIntervalSinceNow)) to full\(note)")
-                                .font(.caption).foregroundStyle(.green)
+                                .font(.caption).fontWeight(.medium)
+                                .foregroundStyle(Self.accentGreen)
+                                .padding(.horizontal, 5).padding(.vertical, 2)
+                                .background(Self.accentGreen.opacity(0.14), in: Capsule())
                         }
                     }
                 }
@@ -534,7 +545,7 @@ struct DetailView: View {
             // Account / token
             HStack(spacing: 8) {
                 if store.loggedIn {
-                    Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                    Image(systemName: "checkmark.seal.fill").foregroundStyle(Self.accentGreen)
                     Text(store.loginUser.map { "Signed in · \($0.prefix(8))…" } ?? "Signed in")
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 } else {
