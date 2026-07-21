@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bosch Bar — Bosch eBike Flow for your Mac menu bar</title>
-  <meta name="description" content="Live battery, range, charge countdown and ride alerts from your Bosch eBike Flow account — right in your Mac's menu bar.">
+  <title>Bike Bar — your eBike in your Mac menu bar</title>
+  <meta name="description" content="Live battery, range, charge countdown and ride alerts from your eBike — right in your Mac's menu bar.">
   <link rel="icon" href="icon.png">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -166,6 +166,39 @@
       50% { opacity: 0.4; }
     }
 
+    .section-title {
+      margin-top: 56px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .section-sub {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #8b9a91;
+      line-height: 1.6;
+    }
+
+    .section-sub strong { color: #b9c5be; font-weight: 600; }
+
+    .brands {
+      margin-top: 22px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .brand {
+      padding: 7px 14px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 100px;
+      font-size: 13px;
+      color: #a8b6ad;
+    }
+
     .screenshots {
       margin-top: 48px;
       display: flex;
@@ -270,8 +303,8 @@
   <a href="https://buymeacoffee.com/digitalhen" target="_blank" rel="noopener noreferrer" class="coffee-btn">☕ Buy me a coffee</a>
   <div class="backdrop"></div>
   <div class="container">
-    <img src="icon.png" alt="Bosch Bar" class="icon">
-    <h1>Bosch Bar</h1>
+    <img src="icon.png" alt="Bike Bar" class="icon">
+    <h1>Bike Bar</h1>
     <p class="tagline">Your eBike's battery, range and rides — live in your Mac's menu bar.</p>
 
     <div class="download-buttons">
@@ -289,19 +322,46 @@
       <p class="meta">Notarized &middot; Auto-updating &middot; Free</p>
     </div>
 
-    <p class="meta" style="margin-top: 16px; color: #6e7c74;">or grab the source and run it yourself:</p>
-    <code class="install-cmd" onclick="navigator.clipboard.writeText('git clone https://github.com/digitalhen/bosch-bar.git');this.textContent='Copied!';setTimeout(()=>this.textContent='git clone https://github.com/digitalhen/bosch-bar.git',1500)">git clone https://github.com/digitalhen/bosch-bar.git</code>
+    <p class="meta" style="margin-top: 16px; color: #6e7c74;">or install from Terminal:</p>
+    <code class="install-cmd" onclick="navigator.clipboard.writeText('curl -fsSL https://apps.cleartextlabs.com/bike-bar/install.sh | bash');this.textContent='Copied!';setTimeout(()=>this.textContent='curl -fsSL https://apps.cleartextlabs.com/bike-bar/install.sh | bash',1500)">curl -fsSL https://apps.cleartextlabs.com/bike-bar/install.sh | bash</code>
 
     <div class="screenshots">
-      <img src="hero.png" alt="Bosch Bar — battery, range per mode and latest ride in the macOS menu bar" class="hero-img" style="max-width: 340px;">
-      <img src="dashboard.png" alt="Bosch Bar web dashboard — battery, per-mode efficiency, bike health, firmware and a metric-colored ride map" class="hero-img">
+      <img src="hero.png" alt="Bike Bar — battery, charge countdown, range per mode and latest ride in the macOS menu bar" class="hero-img">
+      <img src="dashboard.png" alt="Bike Bar web dashboard — battery, per-mode efficiency, bike health, firmware and a metric-colored ride map" class="hero-img">
       <p class="shot-caption">The bundled web dashboard — efficiency, bike health, firmware and ride maps.</p>
     </div>
 
     <div class="bike-badge">
       <span class="dot"></span>
-      Works with Tern GSD &amp; Bosch Smart System bikes
+      Live data from your own eBike Flow account
     </div>
+
+    <h2 class="section-title">Fits a lot of bikes</h2>
+    <p class="section-sub">
+      Bike Bar talks to the drive system, not the frame — so it works across brands.
+      If your bike runs the <strong>Bosch Smart System</strong> with a <strong>ConnectModule</strong>
+      and you use the eBike Flow app, you're covered:
+    </p>
+    <div class="brands">
+      <span class="brand">Tern</span>
+      <span class="brand">Riese &amp; Müller</span>
+      <span class="brand">Gazelle</span>
+      <span class="brand">Trek</span>
+      <span class="brand">Cannondale</span>
+      <span class="brand">Moustache</span>
+      <span class="brand">Kalkhoff</span>
+      <span class="brand">Haibike</span>
+      <span class="brand">Scott</span>
+      <span class="brand">Urban Arrow</span>
+      <span class="brand">Benno</span>
+      <span class="brand">Yuba</span>
+      <span class="brand">Butchers &amp; Bicycles</span>
+      <span class="brand">Larry vs Harry</span>
+    </div>
+    <p class="section-sub" style="margin-top:14px; font-size:12px; color:#5c6a62;">
+      These makers all ship Smart System models — but they ship other drive systems too.
+      What matters is the system on <em>your</em> bike, not the badge on the down tube.
+    </p>
 
     <div class="features">
       <div class="feature">
@@ -323,9 +383,11 @@
     </div>
 
     <div class="disclaimer">
-      <strong style="color:#8d9c93">Unofficial.</strong> Bosch Bar is an independent project and is not affiliated with,
-      endorsed by, or supported by Robert Bosch GmbH. It signs in to your own eBike Flow account and shows the
-      same data the official app does. Bosch and eBike Flow are trademarks of their respective owners.
+      <strong style="color:#8d9c93">Unofficial.</strong> Bike Bar is an independent project, not affiliated with,
+      endorsed by, or supported by Robert Bosch GmbH or any bicycle manufacturer named above. It signs in to
+      your own eBike Flow account and shows you the same data the official app does. Bosch, eBike Flow and all
+      bicycle brand names are trademarks of their respective owners, used here only to describe compatibility.
+      The app itself is distributed as <em>Bosch Bar</em>.
     </div>
 
     <div class="footer">
